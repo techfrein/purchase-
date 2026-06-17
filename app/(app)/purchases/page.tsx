@@ -17,7 +17,7 @@ import { fetchPurchases } from "@/lib/queries";
 type SearchParams = Promise<{ status?: string; verdict?: string; q?: string }>;
 
 export default async function PurchasesPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireUser();
+  const user = await requireUser();
   const { status = "", verdict = "", q = "" } = await searchParams;
 
   const filters: { status?: string; verdict?: string; q?: string } = {};
@@ -25,7 +25,7 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
   if (verdict && VERDICT_LABELS[verdict]) filters.verdict = verdict;
   if (q) filters.q = q;
 
-  const rows = await fetchPurchases({ limit: 500, filters });
+  const rows = await fetchPurchases({ viewer: user, limit: 500, filters });
 
   return (
     <div>

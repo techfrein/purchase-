@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { apiUser, isAdminLike } from "@/lib/auth";
 import { getSupabase } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { fetchPurchaseById } from "@/lib/queries";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await apiUser();
@@ -16,14 +17,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Decision must be APPROVED or REJECTED." }, { status: 400 });
   }
 
-  const supabase = getSupabase();
-  const { data: purchase, error: fetchErr } = await supabase
-    .from("purchases")
-    .select("id, ref_no, status")
-    .eq("id", Number(id))
-    .maybeSingle();
-  if (fetchErr) throw fetchErr;
+  const purchase = await fetchPurchaseById(Number(id), user);
   if (!purchase) return NextResponse.json({ error: "Purchase not found." }, { status: 404 });
+
+  const supabase = getSupabase();
   if (purchase.status !== "PENDING_REVIEW") {
     return NextResponse.json({ error: "This purchase has already been decided." }, { status: 409 });
   }
@@ -38,7 +35,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       decision_note: (body.note ?? "").trim(),
       updated_at: now,
     })
-    .eq("id", purchase.id);
+    .eq("id", Number(purchase.id));
   if (error) throw error;
 
   await logAudit(

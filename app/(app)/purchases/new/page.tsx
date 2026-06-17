@@ -1,11 +1,15 @@
 import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { fetchCategories } from "@/lib/categories";
 import { canEnterVendorPricing } from "@/lib/purchases";
 import PurchaseForm from "./PurchaseForm";
 
 export default async function NewPurchasePage() {
   const user = await requireUser();
-  const canQuoteVendor = canEnterVendorPricing(user.role);
+  const [canQuoteVendor, categories] = await Promise.all([
+    Promise.resolve(canEnterVendorPricing(user.role)),
+    fetchCategories(),
+  ]);
 
   return (
     <div className="max-w-3xl">
@@ -17,7 +21,7 @@ export default async function NewPurchasePage() {
             : "Enter what you need ordered. Your request goes to the purchase department — you don't need to enter vendor pricing."
         }
       />
-      <PurchaseForm canQuoteVendor={canQuoteVendor} />
+      <PurchaseForm canQuoteVendor={canQuoteVendor} categories={categories} />
     </div>
   );
 }

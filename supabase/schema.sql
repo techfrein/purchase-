@@ -143,7 +143,8 @@ INSERT INTO settings (key, value) VALUES
   ('tolerance_pct',   '10'),
   ('serper_key',      ''),
   ('scrape_enabled',  '1'),
-  ('catalog_enabled', '1')
+  ('catalog_enabled', '1'),
+  ('purchase_categories', '["Television","Laptop","Desktop Computer","Smartphone","Tablet","Monitor","Printer","Medical Equipment","Hospital Furniture","Air Conditioner","Refrigerator","Washing Machine","Water Purifier","UPS","Networking","Security","Accessories","Other"]')
 ON CONFLICT (key) DO NOTHING;
 
 -- ---------------------------------------------------------------------------

@@ -19,7 +19,7 @@ export async function GET(req: Request) {
   if (from) filters.from = from;
   if (to) filters.to = to;
 
-  const rows = await fetchPurchasesForExport(filters);
+  const rows = await fetchPurchasesForExport(user, filters);
 
   const exportRows = rows.map((p) => ({
     "Ref No": p.ref_no,

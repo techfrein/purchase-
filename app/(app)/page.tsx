@@ -21,17 +21,18 @@ import { formatDate, inr } from "@/lib/format";
 import { dashboardCounts, fetchPurchases } from "@/lib/queries";
 
 export default async function DashboardPage() {
-  await requireUser();
+  const user = await requireUser();
   const hospitalName = await getSetting("hospital_name");
-  const counts = await dashboardCounts();
+  const counts = await dashboardCounts(user);
 
   const flagged = await fetchPurchases({
+    viewer: user,
     limit: 5,
     filters: { verdict: "BETTER_PRICE_AVAILABLE", status: "PENDING_REVIEW" },
     order: { column: "potential_saving", ascending: false },
   });
 
-  const recent = await fetchPurchases({ limit: 8 });
+  const recent = await fetchPurchases({ viewer: user, limit: 8 });
 
   return (
     <div>

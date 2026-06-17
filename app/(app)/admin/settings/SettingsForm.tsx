@@ -4,7 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, FormSection, inputClass } from "@/components/ui";
 
-export default function SettingsForm({ initial }: { initial: Record<string, string> }) {
+export default function SettingsForm({
+  initial,
+  serperConfigured,
+}: {
+  initial: Record<string, string>;
+  serperConfigured: boolean;
+}) {
   const router = useRouter();
   const [values, setValues] = useState(initial);
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
@@ -100,7 +106,7 @@ export default function SettingsForm({ initial }: { initial: Record<string, stri
           </label>
 
           <label className="label mt-4 block">
-            Serper.dev API Key <span className="font-normal text-slate-400">(optional, recommended)</span>
+            Serper.dev API Key <span className="font-normal text-slate-400">(required for reliable online prices)</span>
             <input
               type="password"
               value={values.serper_key}
@@ -109,8 +115,14 @@ export default function SettingsForm({ initial }: { initial: Record<string, stri
               className={inputClass}
             />
             <span className="mt-1.5 block text-xs font-normal text-slate-500">
-              A Serper.dev key enables reliable live prices from Google Shopping across
-              Amazon, Flipkart, Croma and other Indian stores.
+              {serperConfigured ? (
+                <span className="font-medium text-emerald-600">Serper is configured — online price checks are enabled.</span>
+              ) : (
+                <>
+                  Without this key the app only tries Amazon/Flipkart scraping, which frequently
+                  fails. Get a free key at serper.dev (2,500 free credits).
+                </>
+              )}
             </span>
           </label>
         </FormSection>

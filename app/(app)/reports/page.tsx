@@ -16,7 +16,7 @@ import { aggregateReport, fetchPurchasesForReport } from "@/lib/queries";
 type SearchParams = Promise<{ status?: string; verdict?: string; from?: string; to?: string }>;
 
 export default async function ReportsPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireUser();
+  const user = await requireUser();
   const { status = "", verdict = "", from = "", to = "" } = await searchParams;
 
   const filters: { status?: string; verdict?: string; from?: string; to?: string } = {};
@@ -25,7 +25,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Sear
   if (from) filters.from = from;
   if (to) filters.to = to;
 
-  const rows = await fetchPurchasesForReport(filters);
+  const rows = await fetchPurchasesForReport(user, filters);
   const { summary, byCategory, byVendor } = aggregateReport(rows);
 
   const exportQuery = new URLSearchParams(

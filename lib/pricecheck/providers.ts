@@ -37,29 +37,31 @@ async function fetchText(url: string, timeoutMs = 8000): Promise<string | null> 
   }
 }
 
-/** Google Shopping via Serper.dev — the reliable live source when an API key is configured. */
-async function serperListings(input: ProductInput): Promise<Listing[]> {
-  const key = (await getSetting("serper_key")).trim();
-  if (!key) return [];
-  const q = searchQuery(input);
-  try {
-    const res = await fetch("https://google.serper.dev/shopping", {
-      method: "POST",
-      headers: { "X-API-KEY": key, "Content-Type": "application/json" },
-      body: JSON.stringify({ q, gl: "in", hl: "en" }),
-      signal: AbortSignal.timeout(15000),
-      cache: "no-store",
-    });
-    if (!res.ok) return [];
-    const data = (await res.json()) as {
-      shopping?: Array<{
-        title?: string;
-        source?: string;
-        price?: string;
-        priceValue?: number;
-        link?: string;
-      }>;
-    };
+async function serperRequest(
+  key: string,
+  endpoint: "shopping" | "search",
+  q: string
+): Promise<Listing[]> {
+  const res = await fetch(`https://google.serper.dev/${endpoint}`, {
+    method: "POST",
+    headers: { "X-API-KEY": key, "Content-Type": "application/json" },
+    body: JSON.stringify({ q, gl: "in", hl: "en", num: 15 }),
+    signal: AbortSignal.timeout(15000),
+    cache: "no-store",
+  });
+  if (!res.ok) return [];
+  const data = (await res.json()) as {
+    shopping?: Array<{
+      title?: string;
+      source?: string;
+      price?: string;
+      priceValue?: number;
+      link?: string;
+    }>;
+    organic?: Array<{ title?: string; link?: string; snippet?: string }>;
+  };
+
+  if (endpoint === "shopping") {
     return (data.shopping ?? [])
       .map((r) => {
         const price = r.priceValue ?? (r.price ? parsePrice(r.price) : null);
@@ -72,9 +74,45 @@ async function serperListings(input: ProductInput): Promise<Listing[]> {
         } as Listing;
       })
       .filter((l): l is Listing => l !== null);
+  }
+
+  return (data.organic ?? [])
+    .map((r) => {
+      if (!r.title) return null;
+      const price = parsePrice(`${r.title} ${r.snippet ?? ""}`);
+      if (!price) return null;
+      return {
+        source: "Google Search",
+        title: r.title,
+        price,
+        url: r.link ?? null,
+      } as Listing;
+    })
+    .filter((l): l is Listing => l !== null);
+}
+
+/** Google Shopping via Serper.dev — the reliable live source when an API key is configured. */
+async function serperListings(input: ProductInput): Promise<Listing[]> {
+  const key = (await getSetting("serper_key")).trim();
+  if (!key) return [];
+  const q = searchQuery(input);
+  try {
+    const shopping = await serperRequest(key, "shopping", q);
+    if (shopping.length >= 3) return shopping;
+    const search = await serperRequest(key, "search", `${q} price india buy`);
+    return [...shopping, ...search];
   } catch {
     return [];
   }
+}
+
+async function withRetry(fetcher: () => Promise<Listing[]>, attempts = 2): Promise<Listing[]> {
+  for (let i = 0; i < attempts; i++) {
+    const result = await fetcher();
+    if (result.length > 0) return result;
+    if (i < attempts - 1) await new Promise((r) => setTimeout(r, 600));
+  }
+  return [];
 }
 
 /** Best-effort scrape of Amazon.in search results. Amazon frequently blocks bots; failures return []. */
@@ -188,7 +226,10 @@ async function catalogListings(input: ProductInput): Promise<Listing[]> {
 export async function gatherListings(input: ProductInput): Promise<Listing[]> {
   const tasks: Promise<Listing[]>[] = [serperListings(input)];
   if ((await getSetting("scrape_enabled")) === "1") {
-    tasks.push(amazonListings(input), flipkartListings(input));
+    tasks.push(
+      withRetry(() => amazonListings(input)),
+      withRetry(() => flipkartListings(input))
+    );
   }
   const settled = await Promise.allSettled(tasks);
   const live = settled.flatMap((s) => (s.status === "fulfilled" ? s.value : []));

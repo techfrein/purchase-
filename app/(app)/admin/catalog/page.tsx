@@ -1,12 +1,13 @@
 import { Card, CardHeader, DataTable, EmptyState, PageHeader } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
+import { fetchCategories } from "@/lib/categories";
 import { formatDate, inr } from "@/lib/format";
 import { fetchReferencePrices } from "@/lib/queries";
 import CatalogManager from "./CatalogManager";
 
 export default async function CatalogPage() {
   await requireAdmin();
-  const rows = await fetchReferencePrices();
+  const [rows, categories] = await Promise.all([fetchReferencePrices(), fetchCategories()]);
 
   return (
     <div className="max-w-5xl">
@@ -18,7 +19,7 @@ export default async function CatalogPage() {
       <Card className="mb-6 overflow-hidden">
         <CardHeader title="Add Reference Price" />
         <div className="p-5">
-          <CatalogManager mode="create" />
+          <CatalogManager mode="create" categories={categories} />
         </div>
       </Card>
 

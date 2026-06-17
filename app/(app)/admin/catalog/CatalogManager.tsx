@@ -2,12 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CATEGORIES } from "@/lib/format";
-
 import { inputClass } from "@/components/ui";
 
 export default function CatalogManager(
-  props: { mode: "create" } | { mode: "delete"; entryId: number }
+  props: ({ mode: "create"; categories: string[] } | { mode: "delete"; entryId: number })
 ) {
   const router = useRouter();
   const [error, setError] = useState("");
@@ -67,7 +65,7 @@ export default function CatalogManager(
         <label className="text-sm font-medium text-slate-700">
           Category *
           <select name="category" required defaultValue="Other" className={inputClass}>
-            {CATEGORIES.map((c) => (
+            {props.categories.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>

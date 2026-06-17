@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { apiUser } from "@/lib/auth";
+import { fetchCategories } from "@/lib/categories";
 import { fetchPurchases } from "@/lib/queries";
 import { createPurchase, sanitizePurchaseBody, validatePurchasePayload } from "@/lib/purchases";
 import { runPriceCheck } from "@/lib/pricecheck/engine";
@@ -10,6 +11,7 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const rows = await fetchPurchases({
+    viewer: user,
     limit: 500,
     filters: {
       status: url.searchParams.get("status") ?? undefined,
@@ -28,6 +30,12 @@ export async function POST(req: Request) {
   const body = sanitizePurchaseBody(raw, user.role);
   const error = validatePurchasePayload(body);
   if (error) return NextResponse.json({ error }, { status: 400 });
+
+  const categories = await fetchCategories();
+  const category = String(body.category ?? "").trim();
+  if (!categories.some((c) => c.toLowerCase() === category.toLowerCase())) {
+    return NextResponse.json({ error: "Choose a valid category." }, { status: 400 });
+  }
 
   const id = await createPurchase(
     {

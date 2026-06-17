@@ -35,11 +35,21 @@ export async function runPriceCheck(purchaseId: number, userId: number): Promise
   };
 
   const raw = await gatherListings(input);
-  const classified = raw
+  let classified = raw
     .map((l) => classifyListing(input, l))
     .filter((l): l is ClassifiedListing => l !== null)
-    .sort((a, b) => b.matchScore - a.matchScore || a.price - b.price)
-    .slice(0, 40);
+    .sort((a, b) => b.matchScore - a.matchScore || a.price - b.price);
+
+  // When scrapers return results but the strict matcher rejects them all, keep
+  // the cheapest raw hits so staff still see online prices on the detail page.
+  if (classified.length === 0 && raw.length > 0) {
+    classified = [...raw]
+      .sort((a, b) => a.price - b.price)
+      .slice(0, 15)
+      .map((l) => ({ ...l, matchType: "ALTERNATIVE" as const, matchScore: 0.15 }));
+  }
+
+  classified = classified.slice(0, 40);
 
   const sameProduct = dropPriceOutliers(classified.filter((l) => l.matchType === "SAME_PRODUCT"));
   const comparable = dropPriceOutliers(

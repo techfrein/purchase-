@@ -9,10 +9,12 @@ export default function PurchaseActions({
   purchaseId,
   status,
   isAdmin,
+  checkedAt,
 }: {
   purchaseId: number;
   status: string;
   isAdmin: boolean;
+  checkedAt: string | null;
 }) {
   const router = useRouter();
   const [note, setNote] = useState("");
@@ -70,7 +72,7 @@ export default function PurchaseActions({
           className="btn btn-secondary"
         >
           <IconRefresh className="h-4 w-4" />
-          {busy === "check" ? "Checking…" : "Re-check Price"}
+          {busy === "check" ? "Checking…" : checkedAt ? "Re-check Price" : "Check Online Price"}
         </button>
 
         {isAdmin && status === "PENDING_REVIEW" && (

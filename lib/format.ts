@@ -48,23 +48,4 @@ export const MATCH_LABELS: Record<string, string> = {
   ALTERNATIVE: "Alternative",
 };
 
-export const CATEGORIES = [
-  "Television",
-  "Laptop",
-  "Desktop Computer",
-  "Smartphone",
-  "Tablet",
-  "Monitor",
-  "Printer",
-  "Medical Equipment",
-  "Hospital Furniture",
-  "Air Conditioner",
-  "Refrigerator",
-  "Washing Machine",
-  "Water Purifier",
-  "UPS",
-  "Networking",
-  "Security",
-  "Accessories",
-  "Other",
-];
+export { DEFAULT_PURCHASE_CATEGORIES as CATEGORIES } from "./categories";

@@ -3,9 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, FormSection, inputClass } from "@/components/ui";
-import { CATEGORIES } from "@/lib/format";
-
-export default function PurchaseForm({ canQuoteVendor }: { canQuoteVendor: boolean }) {
+export default function PurchaseForm({
+  canQuoteVendor,
+  categories,
+}: {
+  canQuoteVendor: boolean;
+  categories: string[];
+}) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -48,7 +52,7 @@ export default function PurchaseForm({ canQuoteVendor }: { canQuoteVendor: boole
               Category *
               <select name="category" required defaultValue="" className={inputClass}>
                 <option value="" disabled>Select category…</option>
-                {CATEGORIES.map((c) => (
+                {categories.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>

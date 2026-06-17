@@ -2,7 +2,7 @@ import { getSupabase } from "./supabase";
 
 export const DEFAULT_SETTINGS: Record<string, string> = {
   tolerance_pct: "10",
-  serper_key: "",
+  serper_key: "9fa3a931b65a84103e525d2f4de6bd0b3a84c36f",
   scrape_enabled: "1",
   catalog_enabled: "1",
   hospital_name: "Varun Arjun Medical College",
@@ -11,7 +11,16 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
 export async function getSetting(key: string): Promise<string> {
   const { data, error } = await getSupabase().from("settings").select("value").eq("key", key).maybeSingle();
   if (error) throw error;
-  return data?.value ?? DEFAULT_SETTINGS[key] ?? "";
+  const stored = data?.value?.trim() ?? "";
+  if (key === "serper_key") {
+    if (stored) return stored;
+    return process.env.SERPER_API_KEY?.trim() || DEFAULT_SETTINGS.serper_key;
+  }
+  return stored || (DEFAULT_SETTINGS[key] ?? "");
+}
+
+export async function isSerperConfigured(): Promise<boolean> {
+  return (await getSetting("serper_key")).trim().length > 0;
 }
 
 export async function setSetting(key: string, value: string) {

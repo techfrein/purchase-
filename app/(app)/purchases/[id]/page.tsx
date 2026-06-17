@@ -19,7 +19,7 @@ export default async function PurchaseDetailPage({
   const user = await requireUser();
   const { id } = await params;
 
-  const p = await fetchPurchaseById(Number(id));
+  const p = await fetchPurchaseById(Number(id), user);
   if (!p) notFound();
 
   const listings = await fetchPriceListings(Number(id));
@@ -199,6 +199,7 @@ export default async function PurchaseDetailPage({
             purchaseId={Number(p.id)}
             status={String(p.status)}
             isAdmin={isAdminLike(user.role)}
+            checkedAt={p.checked_at as string | null}
           />
         </Card>
       </div>
@@ -210,8 +211,23 @@ export default async function PurchaseDetailPage({
         </h2>
         {grouped.length === 0 ? (
           <Card className="mt-4 p-8 text-center text-sm text-slate-500">
-            No listings stored for this purchase. Run a price check to search online stores and the
-            internal reference catalog.
+            {p.checked_at ? (
+              <>
+                <p>Online price check completed but no matching listings were found.</p>
+                <p className="mt-2 text-xs">
+                  For reliable results across Indian stores, add a Serper.dev API key in{" "}
+                  <span className="font-medium text-slate-600">Admin → Settings</span> (or set{" "}
+                  <code className="rounded bg-slate-100 px-1">SERPER_API_KEY</code> in{" "}
+                  <code className="rounded bg-slate-100 px-1">.env.local</code>), then click
+                  Re-check Price below.
+                </p>
+              </>
+            ) : (
+              <p>
+                No listings yet. Click Check Online Price below to search Google Shopping, Amazon,
+                Flipkart, and the internal reference catalog.
+              </p>
+            )}
           </Card>
         ) : (
           grouped.map((group) => (

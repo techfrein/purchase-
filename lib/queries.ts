@@ -1,3 +1,10 @@
+import type { SessionUser } from "./auth";
+import {
+  applyPurchaseScopeFilter,
+  canViewPurchase,
+  purchaseScope,
+  purchaseScopeContext,
+} from "./purchase-access";
 import { getSupabase } from "./db";
 
 export async function userNameMap(ids: number[]): Promise<Record<number, string>> {
@@ -37,11 +44,15 @@ function applyPurchaseFilters(q: any, f?: PurchaseFilters) {
 }
 
 export async function fetchPurchases(opts: {
+  viewer: SessionUser;
   limit?: number;
   filters?: PurchaseFilters;
   order?: { column: string; ascending?: boolean };
 }): Promise<PurchaseRow[]> {
+  const scope = purchaseScope(opts.viewer);
+  const ctx = await purchaseScopeContext(scope);
   let q = getSupabase().from("purchases").select("*");
+  q = applyPurchaseScopeFilter(q, scope, ctx);
   q = applyPurchaseFilters(q, opts.filters);
   q = q.order(opts.order?.column ?? "id", { ascending: opts.order?.ascending ?? false });
   if (opts.limit) q = q.limit(opts.limit);
@@ -52,10 +63,11 @@ export async function fetchPurchases(opts: {
   return rows.map((r) => ({ ...r, created_by_name: names[r.created_by] ?? "—" }));
 }
 
-export async function fetchPurchaseById(id: number) {
+export async function fetchPurchaseById(id: number, viewer: SessionUser) {
   const { data, error } = await getSupabase().from("purchases").select("*").eq("id", id).maybeSingle();
   if (error) throw error;
   if (!data) return null;
+  if (!(await canViewPurchase(viewer, data))) return null;
   const names = await userNameMap(
     [data.created_by, data.decided_by].filter((x): x is number => x != null)
   );
@@ -76,10 +88,12 @@ export async function fetchPriceListings(purchaseId: number) {
   return data ?? [];
 }
 
-export async function dashboardCounts() {
-  const { data, error } = await getSupabase()
-    .from("purchases")
-    .select("status, verdict, unit_price, quantity, potential_saving");
+export async function dashboardCounts(viewer: SessionUser) {
+  const scope = purchaseScope(viewer);
+  const ctx = await purchaseScopeContext(scope);
+  let q = getSupabase().from("purchases").select("status, verdict, unit_price, quantity, potential_saving");
+  q = applyPurchaseScopeFilter(q, scope, ctx);
+  const { data, error } = await q;
   if (error) throw error;
   const rows = data ?? [];
   let spend = 0;
@@ -191,8 +205,11 @@ type ReportPurchase = {
   potential_saving: number | null;
 };
 
-export async function fetchPurchasesForReport(filters?: PurchaseFilters) {
+export async function fetchPurchasesForReport(viewer: SessionUser, filters?: PurchaseFilters) {
+  const scope = purchaseScope(viewer);
+  const ctx = await purchaseScopeContext(scope);
   let q = getSupabase().from("purchases").select("category, vendor_name, unit_price, quantity, verdict, potential_saving");
+  q = applyPurchaseScopeFilter(q, scope, ctx);
   q = applyPurchaseFilters(q, filters);
   const { data, error } = await q;
   if (error) throw error;
@@ -269,8 +286,14 @@ export type ExportPurchaseRow = PurchaseRow & {
   decided_by?: number | null;
 };
 
-export async function fetchPurchasesForExport(filters?: PurchaseFilters): Promise<ExportPurchaseRow[]> {
+export async function fetchPurchasesForExport(
+  viewer: SessionUser,
+  filters?: PurchaseFilters
+): Promise<ExportPurchaseRow[]> {
+  const scope = purchaseScope(viewer);
+  const ctx = await purchaseScopeContext(scope);
   let q = getSupabase().from("purchases").select("*");
+  q = applyPurchaseScopeFilter(q, scope, ctx);
   q = applyPurchaseFilters(q, filters);
   q = q.order("id", { ascending: false });
   const { data, error } = await q;
