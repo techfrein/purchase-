@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+cypress/screenshots/
+cypress/videos/
+cypress/downloads/
 
 # next.js
 /.next/
@@ -39,3 +42,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local database
+data/
