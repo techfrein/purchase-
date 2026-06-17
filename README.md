@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Hospital Purchase Verification System
 
-## Getting Started
+Detects inflated purchase bills by checking quoted prices against online stores and an
+internal reference-price catalog, then routes every purchase through an admin approval
+workflow with a full audit trail.
 
-First, run the development server:
+## Running
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run build
+npm start          # production, http://localhost:3000
+# or: npm run dev  # development
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Default accounts (change the passwords from Admin → Users after first login):
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Username   | Password      | Role                |
+|------------|---------------|---------------------|
+| `admin`    | `admin123`    | Administrator       |
+| `staff`    | `staff123`    | Staff               |
+| `purchase` | `purchase123` | Purchase Department |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**Roles**
 
-## Learn More
+- **Staff** and **Purchase Department** both raise purchase requests. Quoting a
+  local vendor and price is optional — leave the price blank and it is recorded
+  as *Needs Manual Review*.
+- **Administrator** sees every request and the online price check, and is the
+  only role that can approve or reject (rejection requires a note).
 
-To learn more about Next.js, take a look at the following resources:
+Data lives in `data/app.db` (SQLite, created and seeded automatically).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## How a purchase is verified
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. A purchase is entered via the **New Purchase** form or **Excel Import** (template downloadable in-app).
+2. The price engine searches all enabled sources:
+   - **Amazon.in / Flipkart** — best-effort scraping of public search pages (stores often block bots, so results are intermittent),
+   - **Google Shopping via Serper.dev** — reliable live prices across Indian stores; paste a key from serper.dev in Admin → Settings to enable (low-cost: ~$0.30–1 per 1,000 queries, 2,500 free credits),
+   - **Internal reference catalog** — admin-maintained benchmark prices, works offline (Admin → Reference Catalog).
+3. Each listing found is classified against the entered product: **Same Product**, **Similar**, **Same Specification**, or **Alternative**. Accessory listings (covers, cartridges…) and price outliers are discarded.
+4. The quoted price is compared with the best matching listing and the purchase is flagged:
+   - **Better Price Available** (red) — quoted price exceeds the best online price by more than the tolerance (default 10%, configurable in Settings); potential savings are computed,
+   - **Good Price** — within tolerance,
+   - **Better Than Online** — cheaper than every listing found,
+   - **Needs Manual Review** — no comparable listing found.
+5. An **administrator** approves or rejects the purchase (rejection requires a note). Staff and purchase-department users can enter and re-check purchases but cannot decide them.
 
-## Deploy on Vercel
+## Features
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Role-based access: Admin and Purchase Department employee accounts
+- Dashboard with pending/flagged counts, spend and identified savings
+- Purchase list with search and status/verdict filters
+- Bulk entry via Excel with row-level validation errors
+- Reports by category and by vendor (most-flagged first) + Excel export
+- Audit log of every login, entry, price check, decision and settings change
+- User management: create, deactivate, reset password
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Notes
+
+- Prices are INR; comparison sites are the Indian storefronts.
+- Direct scraping of Amazon/Flipkart is brittle and may violate store terms of service —
+  for dependable live data use a Serper.dev key, and keep the reference catalog updated as
+  the authoritative fallback.
+# purchase-
