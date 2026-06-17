@@ -1,3 +1,4 @@
+import { DonutGauge } from "@/components/charts";
 import { IconDownload } from "@/components/icons";
 import {
   Card,
@@ -73,11 +74,23 @@ export default async function ReportsPage({ searchParams }: { searchParams: Sear
         </FilterBar>
       </form>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Purchases" value={String(summary.total)} icon={<span className="text-lg font-bold">#</span>} accent="slate" />
-        <StatCard label="Total Value" value={inr(summary.value)} icon={<span className="text-lg font-bold">₹</span>} accent="blue" />
-        <StatCard label="Flagged Overpriced" value={String(summary.flagged ?? 0)} icon={<span className="text-lg font-bold">!</span>} accent="red" />
-        <StatCard label="Potential Savings" value={inr(summary.savings)} icon={<span className="text-lg font-bold">↓</span>} accent="violet" />
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-4 lg:col-span-2">
+          <StatCard label="Purchases" value={String(summary.total)} icon={<span className="text-lg font-bold">#</span>} accent="slate" />
+          <StatCard label="Total Value" value={inr(summary.value)} icon={<span className="text-lg font-bold">₹</span>} accent="blue" />
+          <StatCard label="Flagged Overpriced" value={String(summary.flagged ?? 0)} icon={<span className="text-lg font-bold">!</span>} accent="red" />
+          <StatCard label="Potential Savings" value={inr(summary.savings)} icon={<span className="text-lg font-bold">↓</span>} accent="green" />
+        </div>
+        <Card>
+          <CardHeader title="Flag Rate" subtitle="Overpriced share" />
+          <div className="px-5 pb-5">
+            <DonutGauge
+              value={summary.total > 0 ? (summary.flagged / summary.total) * 100 : 0}
+              label="Flagged"
+              sublabel={`${summary.flagged} of ${summary.total}`}
+            />
+          </div>
+        </Card>
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">

@@ -38,7 +38,8 @@ CREATE TABLE IF NOT EXISTS purchases (
   brand               TEXT NOT NULL DEFAULT '',
   model               TEXT NOT NULL DEFAULT '',
   specs               TEXT NOT NULL DEFAULT '',
-  quantity            INTEGER NOT NULL DEFAULT 1,
+  quantity            NUMERIC(12, 3) NOT NULL DEFAULT 1,
+  unit                TEXT NOT NULL DEFAULT 'unit',
   unit_price          NUMERIC(12, 2),
   vendor_name         TEXT NOT NULL DEFAULT '',
   vendor_contact      TEXT NOT NULL DEFAULT '',
@@ -64,9 +65,22 @@ CREATE TABLE IF NOT EXISTS purchases (
   decided_by          BIGINT REFERENCES users(id),
   decided_at          TIMESTAMPTZ,
   decision_note       TEXT NOT NULL DEFAULT '',
+  -- The online listing the approver selected as the benchmark when approving.
+  -- The vendor's unit_price is intentionally left unchanged.
+  approved_source     TEXT,
+  approved_price      NUMERIC(12, 2),
+  approved_url        TEXT,
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Migration for existing databases (safe to re-run):
+ALTER TABLE purchases ADD COLUMN IF NOT EXISTS approved_source TEXT;
+ALTER TABLE purchases ADD COLUMN IF NOT EXISTS approved_price  NUMERIC(12, 2);
+ALTER TABLE purchases ADD COLUMN IF NOT EXISTS approved_url    TEXT;
+ALTER TABLE purchases ADD COLUMN IF NOT EXISTS unit            TEXT NOT NULL DEFAULT 'unit';
+-- Allow fractional quantities for measures like litres / kilograms.
+ALTER TABLE purchases ALTER COLUMN quantity TYPE NUMERIC(12, 3);
 
 CREATE TABLE IF NOT EXISTS price_listings (
   id           BIGSERIAL PRIMARY KEY,
@@ -111,6 +125,8 @@ CREATE TABLE IF NOT EXISTS audit_log (
 CREATE INDEX IF NOT EXISTS idx_purchases_status    ON purchases(status);
 CREATE INDEX IF NOT EXISTS idx_purchases_verdict   ON purchases(verdict);
 CREATE INDEX IF NOT EXISTS idx_purchases_created   ON purchases(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_purchases_creator   ON purchases(created_by);
+CREATE INDEX IF NOT EXISTS idx_purchases_category  ON purchases(category);
 CREATE INDEX IF NOT EXISTS idx_listings_purchase   ON price_listings(purchase_id);
 CREATE INDEX IF NOT EXISTS idx_audit_created       ON audit_log(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_users_approval      ON users(approval_status);
@@ -144,6 +160,9 @@ INSERT INTO settings (key, value) VALUES
   ('serper_key',      ''),
   ('scrape_enabled',  '1'),
   ('catalog_enabled', '1'),
+  ('emandi_enabled',  '1'),
+  ('emandi_market',   'Shahjahanpur'),
+  ('emandi_state',    'Uttar Pradesh'),
   ('purchase_categories', '["Television","Laptop","Desktop Computer","Smartphone","Tablet","Monitor","Printer","Medical Equipment","Hospital Furniture","Air Conditioner","Refrigerator","Washing Machine","Water Purifier","UPS","Networking","Security","Accessories","Other"]')
 ON CONFLICT (key) DO NOTHING;
 

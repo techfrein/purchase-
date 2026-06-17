@@ -3,10 +3,12 @@ import { requireAdmin } from "@/lib/auth";
 import { getSetting, getSupabase, isSerperConfigured } from "@/lib/db";
 import { fetchCategories } from "@/lib/categories";
 import CategoryManager from "./CategoryManager";
+import DangerZone from "./DangerZone";
 import SettingsForm from "./SettingsForm";
 
 export default async function SettingsPage() {
-  await requireAdmin();
+  const user = await requireAdmin();
+  const isOwner = user.role === "OWNER";
   const [serperConfigured, serperRow, hospitalName, tolerancePct, scrapeEnabled, catalogEnabled, categories] =
     await Promise.all([
       isSerperConfigured(),
@@ -45,6 +47,7 @@ export default async function SettingsPage() {
         <CategoryManager initial={categories} />
       </div>
       <SettingsForm initial={settings} serperConfigured={serperConfigured} />
+      {isOwner && <DangerZone />}
     </div>
   );
 }

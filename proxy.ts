@@ -28,5 +28,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.svg).*)"],
+  // Public assets (images, icons) must bypass auth so Next.js image optimization can fetch them.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpe?g|webp|gif|ico)).*)"],
 };

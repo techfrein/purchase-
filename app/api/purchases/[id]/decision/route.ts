@@ -12,7 +12,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   const { id } = await params;
-  const body = (await req.json().catch(() => ({}))) as { decision?: string; note?: string };
+  const body = (await req.json().catch(() => ({}))) as {
+    decision?: string;
+    note?: string;
+    approvedListing?: { source?: string; price?: number | string; url?: string | null } | null;
+  };
   if (body.decision !== "APPROVED" && body.decision !== "REJECTED") {
     return NextResponse.json({ error: "Decision must be APPROVED or REJECTED." }, { status: 400 });
   }
@@ -25,6 +29,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "This purchase has already been decided." }, { status: 409 });
   }
 
+  // When approving, the owner may pick one of the scraped listings as the
+  // benchmark. We record it but never overwrite the vendor's quoted price.
+  const chosen = body.decision === "APPROVED" ? body.approvedListing : null;
+  const approvedPrice =
+    chosen && chosen.price != null && isFinite(Number(chosen.price)) ? Number(chosen.price) : null;
+
   const now = new Date().toISOString();
   const { error } = await supabase
     .from("purchases")
@@ -33,17 +43,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       decided_by: user.id,
       decided_at: now,
       decision_note: (body.note ?? "").trim(),
+      approved_source: chosen?.source ?? null,
+      approved_price: approvedPrice,
+      approved_url: chosen?.url ?? null,
       updated_at: now,
     })
     .eq("id", Number(purchase.id));
   if (error) throw error;
 
+  const benchmark =
+    chosen?.source && approvedPrice != null ? ` [benchmark: ${chosen.source} ₹${approvedPrice}]` : "";
   await logAudit(
     user.id,
     body.decision === "APPROVED" ? "PURCHASE_APPROVED" : "PURCHASE_REJECTED",
     "purchase",
     String(purchase.id),
-    `${purchase.ref_no}${body.note ? ` — ${body.note.trim()}` : ""}`
+    `${purchase.ref_no}${body.note ? ` — ${body.note.trim()}` : ""}${benchmark}`
   );
   return NextResponse.json({ ok: true });
 }

@@ -10,9 +10,11 @@ import {
   PageHeader,
   inputClass,
 } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
+import { isAdminLike, requireUser } from "@/lib/auth";
+import { unitLabel } from "@/lib/categories";
 import { formatDate, inr, STATUS_LABELS, VERDICT_LABELS } from "@/lib/format";
 import { fetchPurchases } from "@/lib/queries";
+import RowActions from "./RowActions";
 
 type SearchParams = Promise<{ status?: string; verdict?: string; q?: string }>;
 
@@ -26,6 +28,10 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
   if (q) filters.q = q;
 
   const rows = await fetchPurchases({ viewer: user, limit: 500, filters });
+
+  const canDecide = isAdminLike(user.role); // OWNER + ADMIN
+  const canDelete = user.role === "OWNER";
+  const showActions = canDecide || canDelete;
 
   return (
     <div>
@@ -48,7 +54,7 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
               name="q"
               defaultValue={q}
               placeholder="Product, ref no or vendor…"
-              className={`${inputClass} !mt-0 w-56`}
+              className={`${inputClass} !mt-0 sm:w-56`}
             />
           </FilterField>
           <FilterField label="Status">
@@ -67,17 +73,19 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
               ))}
             </select>
           </FilterField>
-          <button type="submit" className="btn btn-dark">Filter</button>
-          <Link href="/purchases" className="self-end px-2 py-2 text-sm font-medium text-slate-500 hover:text-slate-700">
-            Reset
-          </Link>
+          <div className="flex items-center gap-2">
+            <button type="submit" className="btn btn-dark flex-1 sm:flex-none">Filter</button>
+            <Link href="/purchases" className="px-2 py-2 text-sm font-medium text-slate-500 hover:text-slate-700">
+              Reset
+            </Link>
+          </div>
         </FilterBar>
       </form>
 
       <DataTable>
         {rows.length === 0 ? (
           <tbody>
-            <tr><td colSpan={10}><EmptyState message="No purchases match these filters." /></td></tr>
+            <tr><td colSpan={showActions ? 11 : 10}><EmptyState message="No purchases match these filters." /></td></tr>
           </tbody>
         ) : (
           <>
@@ -93,20 +101,21 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
                 <th>Verdict</th>
                 <th>Status</th>
                 <th>Entered</th>
+                {showActions && <th className="text-right">Actions</th>}
               </tr>
             </thead>
             <tbody>
               {rows.map((p) => (
                 <tr key={p.id}>
                   <td>
-                    <Link href={`/purchases/${p.id}`} className="font-medium text-sky-700 hover:underline">
+                    <Link href={`/purchases/${p.id}`} className="font-medium text-emerald-700 hover:underline">
                       {String(p.ref_no)}
                     </Link>
                   </td>
                   <td className="max-w-60 truncate text-slate-700">{String(p.product_name)}</td>
                   <td className="text-slate-600">{String(p.category)}</td>
                   <td className="text-slate-600">{String(p.vendor_name) || "—"}</td>
-                  <td className="text-right text-slate-700">{Number(p.quantity)}</td>
+                  <td className="text-right text-slate-700">{Number(p.quantity)} {unitLabel(String(p.unit ?? "unit"))}</td>
                   <td className="text-right text-slate-700">{inr(p.unit_price as number | null)}</td>
                   <td className="text-right font-semibold text-slate-900">
                     {p.unit_price != null ? inr(Number(p.unit_price) * Number(p.quantity)) : "—"}
@@ -117,6 +126,17 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
                     <div>{formatDate(String(p.created_at))}</div>
                     <div className="text-xs">{p.created_by_name}</div>
                   </td>
+                  {showActions && (
+                    <td className="text-right">
+                      <RowActions
+                        purchaseId={Number(p.id)}
+                        refNo={String(p.ref_no)}
+                        status={String(p.status)}
+                        canDecide={canDecide}
+                        canDelete={canDelete}
+                      />
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

@@ -1,3 +1,4 @@
+import { normalizeUnit } from "./categories";
 import { getSupabase, nextRefNo } from "./db";
 import { logAudit } from "./audit";
 
@@ -8,6 +9,7 @@ export type NewPurchase = {
   model?: string;
   specs?: string;
   quantity: number;
+  unit?: string;
   unitPrice?: number | null;
   vendorName?: string;
   vendorContact?: string;
@@ -22,6 +24,9 @@ export async function createPurchase(data: NewPurchase, userId: number): Promise
   const unitPrice =
     data.unitPrice != null && isFinite(data.unitPrice) && data.unitPrice > 0 ? data.unitPrice : null;
 
+  // Allow fractional quantities (e.g. 2.5 L, 1.5 kg) rounded to 3 decimals.
+  const quantity = Math.max(0.001, Math.round(Number(data.quantity) * 1000) / 1000);
+
   const { data: row, error } = await getSupabase()
     .from("purchases")
     .insert({
@@ -31,7 +36,8 @@ export async function createPurchase(data: NewPurchase, userId: number): Promise
       brand: (data.brand ?? "").trim(),
       model: (data.model ?? "").trim(),
       specs: (data.specs ?? "").trim(),
-      quantity: Math.max(1, Math.floor(data.quantity)),
+      quantity,
+      unit: normalizeUnit(data.unit),
       unit_price: unitPrice,
       vendor_name: (data.vendorName ?? "").trim(),
       vendor_contact: (data.vendorContact ?? "").trim(),
@@ -52,7 +58,7 @@ export async function createPurchase(data: NewPurchase, userId: number): Promise
     "PURCHASE_CREATED",
     "purchase",
     String(id),
-    `${refNo}: ${data.productName} (qty ${data.quantity} ${priceNote}, via ${data.source})`
+    `${refNo}: ${data.productName} (qty ${quantity} ${normalizeUnit(data.unit)} ${priceNote}, via ${data.source})`
   );
   return id;
 }
@@ -81,7 +87,7 @@ export function validatePurchasePayload(body: Record<string, unknown>): string |
   if (!String(body.productName ?? "").trim()) return "Product name is required.";
   if (!String(body.category ?? "").trim()) return "Category is required.";
   const qty = Number(body.quantity);
-  if (!isFinite(qty) || qty < 1) return "Quantity must be at least 1.";
+  if (!isFinite(qty) || qty <= 0) return "Quantity must be greater than zero.";
   if (body.unitPrice != null && String(body.unitPrice).trim() !== "") {
     const price = Number(body.unitPrice);
     if (!isFinite(price) || price <= 0) return "Local vendor price must be a positive number.";

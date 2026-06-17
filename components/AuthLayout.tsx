@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { IconMedical } from "./icons";
+import HospitalLogo from "./HospitalLogo";
 
 export default function AuthLayout({
   hospitalName,
@@ -17,14 +17,9 @@ export default function AuthLayout({
   return (
     <main className="flex min-h-screen">
       <div className="auth-panel hidden w-[42%] flex-col justify-between p-10 lg:flex">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-sky-500 text-white">
-            <IconMedical className="h-6 w-6" />
-          </div>
-          <div>
-            <div className="text-base font-semibold text-slate-800">{hospitalName}</div>
-            <div className="text-sm text-slate-500">Purchase Verification Portal</div>
-          </div>
+        <div>
+          <HospitalLogo variant="header" priority />
+          <div className="mt-2 text-sm text-slate-500">Purchase Verification Portal</div>
         </div>
 
         <div className="max-w-sm">
@@ -37,15 +32,15 @@ export default function AuthLayout({
           </p>
           <ul className="mt-6 space-y-2 text-sm text-slate-600">
             <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
               Automatic price verification
             </li>
             <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
               Admin approval workflow
             </li>
             <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
               Excel bulk import
             </li>
           </ul>
@@ -58,12 +53,9 @@ export default function AuthLayout({
 
       <div className="flex flex-1 flex-col items-center justify-center bg-[var(--background)] px-6 py-10">
         <div className="w-full max-w-md">
-          <div className="mb-8 text-center lg:hidden">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-sky-500 text-white">
-              <IconMedical className="h-7 w-7" />
-            </div>
-            <h1 className="text-lg font-semibold text-slate-800">{hospitalName}</h1>
-            <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+          <div className="mb-8 lg:hidden">
+            <HospitalLogo variant="header" className="mx-auto w-full max-w-xs sm:max-w-sm" priority />
+            <p className="mt-4 text-center text-sm text-slate-500">{subtitle}</p>
           </div>
 
           <div className="mb-6 hidden lg:block">

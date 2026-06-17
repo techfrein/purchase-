@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { getSupabase } from "./supabase";
 
 export const DEFAULT_SETTINGS: Record<string, string> = {
@@ -8,7 +9,9 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   hospital_name: "Varun Arjun Medical College",
 };
 
-export async function getSetting(key: string): Promise<string> {
+// Deduped per request — getSetting("hospital_name") is read by both the app
+// layout and the dashboard page on a single render.
+export const getSetting = cache(async function getSetting(key: string): Promise<string> {
   const { data, error } = await getSupabase().from("settings").select("value").eq("key", key).maybeSingle();
   if (error) throw error;
   const stored = data?.value?.trim() ?? "";
@@ -17,7 +20,7 @@ export async function getSetting(key: string): Promise<string> {
     return process.env.SERPER_API_KEY?.trim() || DEFAULT_SETTINGS.serper_key;
   }
   return stored || (DEFAULT_SETTINGS[key] ?? "");
-}
+});
 
 export async function isSerperConfigured(): Promise<boolean> {
   return (await getSetting("serper_key")).trim().length > 0;

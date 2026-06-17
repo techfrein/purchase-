@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { cache } from "react";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -127,26 +128,26 @@ export async function logout() {
   cookieStore.delete(SESSION_COOKIE);
 }
 
-export async function getSessionUser(): Promise<SessionUser | null> {
+// Deduped per request: the app layout and the page both call requireUser(),
+// and several components call getSessionUser() during one render. cache()
+// collapses all of those into a single session+user lookup per request.
+export const getSessionUser = cache(async function getSessionUser(): Promise<SessionUser | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
 
+  // One round-trip instead of two: join the user row onto the session row.
   const { data: session, error: sErr } = await getSupabase()
     .from("sessions")
-    .select("user_id")
+    .select("user:users(id, username, name, role, active)")
     .eq("token", token)
     .gt("expires_at", new Date().toISOString())
     .maybeSingle();
   if (sErr) throw sErr;
-  if (!session) return null;
 
-  const { data: user, error: uErr } = await getSupabase()
-    .from("users")
-    .select("id, username, name, role, active")
-    .eq("id", session.user_id)
-    .maybeSingle();
-  if (uErr) throw uErr;
+  const user = session?.user as
+    | { id: number; username: string; name: string; role: string; active: boolean | number | null }
+    | undefined;
   if (!user || !isActive(user.active)) return null;
 
   return {
@@ -155,7 +156,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     name: user.name,
     role: user.role as Role,
   };
-}
+});
 
 export async function requireUser(): Promise<SessionUser> {
   const user = await getSessionUser();

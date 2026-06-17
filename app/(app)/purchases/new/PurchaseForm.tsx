@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, FormSection, inputClass } from "@/components/ui";
+import { PURCHASE_UNITS } from "@/lib/categories";
 export default function PurchaseForm({
   canQuoteVendor,
   categories,
@@ -69,10 +70,28 @@ export default function PurchaseForm({
               Specifications
               <input name="specs" placeholder="e.g. 43 inch, 4K UHD, Smart TV" className={inputClass} />
             </label>
-            <label className="label">
-              Quantity *
-              <input name="quantity" type="number" min="1" step="1" defaultValue="1" required className={inputClass} />
-            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="label">
+                Quantity *
+                <input
+                  name="quantity"
+                  type="number"
+                  min="0.001"
+                  step="any"
+                  defaultValue="1"
+                  required
+                  className={inputClass}
+                />
+              </label>
+              <label className="label">
+                Unit *
+                <select name="unit" defaultValue="unit" className={inputClass}>
+                  {PURCHASE_UNITS.map((u) => (
+                    <option key={u.value} value={u.value}>{u.label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
         </FormSection>
 

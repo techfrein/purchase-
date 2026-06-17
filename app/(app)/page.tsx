@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { StatusBadge, VerdictBadge } from "@/components/badges";
+import { BarTrend, DonutGauge } from "@/components/charts";
 import {
   IconAlert,
   IconCheck,
@@ -8,109 +9,198 @@ import {
   IconReceipt,
   IconTrending,
 } from "@/components/icons";
-import {
-  Button,
-  Card,
-  CardHeader,
-  EmptyState,
-  StatCard,
-} from "@/components/ui";
-import { requireUser } from "@/lib/auth";
+import VinkuraAnalyser from "@/components/VinkuraAnalyser";
+import { Button, Card, CardHeader, EmptyState, StatCard } from "@/components/ui";
+import { analysePurchase } from "@/lib/analyser";
+import { isAdminLike, requireUser } from "@/lib/auth";
 import { getSetting } from "@/lib/db";
 import { formatDate, inr } from "@/lib/format";
 import { dashboardCounts, fetchPurchases } from "@/lib/queries";
 
+const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
+
 export default async function DashboardPage() {
   const user = await requireUser();
-  const hospitalName = await getSetting("hospital_name");
-  const counts = await dashboardCounts(user);
 
-  const flagged = await fetchPurchases({
-    viewer: user,
-    limit: 5,
-    filters: { verdict: "BETTER_PRICE_AVAILABLE", status: "PENDING_REVIEW" },
-    order: { column: "potential_saving", ascending: false },
-  });
+  // Independent reads run concurrently rather than as sequential round-trips.
+  const [hospitalName, counts, flagged, recent] = await Promise.all([
+    getSetting("hospital_name"),
+    dashboardCounts(user),
+    fetchPurchases({
+      viewer: user,
+      limit: 5,
+      filters: { verdict: "BETTER_PRICE_AVAILABLE", status: "PENDING_REVIEW" },
+      order: { column: "potential_saving", ascending: false },
+    }),
+    fetchPurchases({ viewer: user, limit: 40 }),
+  ]);
 
-  const recent = await fetchPurchases({ viewer: user, limit: 8 });
+  // Weekly activity, derived from the rows we already have (no extra query).
+  const week = WEEKDAYS.map((label) => ({ label, value: 0 }));
+  for (const p of recent) {
+    const d = new Date(String(p.created_at));
+    if (!isNaN(d.getTime())) week[d.getDay()].value += 1;
+  }
+
+  const decided = counts.approved + counts.flagged;
+  const approvalRate = decided > 0 ? (counts.approved / decided) * 100 : 0;
+  const recentTop = recent.slice(0, 7);
+
+  // Vinkura insight for the highest-impact flagged purchase (admins/owner only).
+  const topFlagged = flagged[0];
+  const topInsight =
+    isAdminLike(user.role) && topFlagged
+      ? analysePurchase({
+          unitPrice: topFlagged.unit_price != null ? Number(topFlagged.unit_price) : null,
+          quantity: Number(topFlagged.quantity),
+          bestOnlinePrice:
+            topFlagged.best_online_price != null ? Number(topFlagged.best_online_price) : null,
+          bestOnlineSource: topFlagged.best_online_source as string | null,
+          potentialSaving:
+            topFlagged.potential_saving != null ? Number(topFlagged.potential_saving) : null,
+          verdict: String(topFlagged.verdict),
+        })
+      : null;
 
   return (
-    <div>
-      <div className="mb-6 rounded-xl border border-sky-100 bg-white p-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-sm text-slate-500">Welcome to</p>
-            <h1 className="mt-0.5 text-xl font-semibold text-slate-800 sm:text-2xl">{hospitalName}</h1>
-            <p className="mt-2 max-w-lg text-sm text-slate-600">
-              Monitor purchase requests, verify prices, and track savings across departments.
-            </p>
-          </div>
-          <Button href="/purchases/new">
-            <IconPlus className="h-4 w-4" />
-            New Request
-          </Button>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Dashboard</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Monitor purchase requests, verify prices, and track savings across {hospitalName}.
+          </p>
         </div>
+        <Button href="/purchases/new">
+          <IconPlus className="h-4 w-4" />
+          New Request
+        </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        <StatCard label="Total Purchases" value={String(counts.total)} icon={<IconReceipt className="h-5 w-5" />} accent="slate" />
-        <StatCard label="Pending Review" value={String(counts.pending ?? 0)} icon={<IconAlert className="h-5 w-5" />} accent="amber" />
-        <StatCard label="Approved" value={String(counts.approved ?? 0)} icon={<IconCheck className="h-5 w-5" />} accent="green" />
-        <StatCard label="Flagged Overpriced" value={String(counts.flagged ?? 0)} icon={<IconTrending className="h-5 w-5" />} accent="red" />
-        <StatCard label="Total Value" value={inr(counts.spend)} icon={<IconCurrency className="h-5 w-5" />} accent="blue" />
-        <StatCard label="Potential Savings" value={inr(counts.savings)} icon={<IconCurrency className="h-5 w-5" />} accent="violet" />
+      {/* Stat row */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard
+          label="Total Purchases"
+          value={String(counts.total)}
+          icon={<IconReceipt className="h-5 w-5" />}
+          featured
+          href="/purchases"
+          caption="All requests on record"
+        />
+        <StatCard
+          label="Pending Review"
+          value={String(counts.pending ?? 0)}
+          icon={<IconAlert className="h-5 w-5" />}
+          accent="amber"
+          href="/purchases?status=PENDING_REVIEW"
+        />
+        <StatCard
+          label="Approved"
+          value={String(counts.approved ?? 0)}
+          icon={<IconCheck className="h-5 w-5" />}
+          accent="green"
+          href="/purchases?status=APPROVED"
+        />
+        <StatCard
+          label="Flagged Overpriced"
+          value={String(counts.flagged ?? 0)}
+          icon={<IconTrending className="h-5 w-5" />}
+          accent="red"
+          href="/purchases?verdict=BETTER_PRICE_AVAILABLE"
+        />
       </div>
 
-      {flagged.length > 0 && (
-        <Card className="mt-8 overflow-hidden border-red-200">
-          <div className="flex items-center gap-3 border-b border-red-100 bg-red-50 px-5 py-3.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-100 text-red-600">
-              <IconAlert className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-red-800">Flagged purchases awaiting review</h2>
-              <p className="text-xs text-red-600/80">Better prices found online for these items</p>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="table-modern w-full min-w-[32rem] text-sm">
-              <tbody>
-                {flagged.map((p) => (
-                  <tr key={p.id}>
-                    <td className="px-5 py-3.5">
-                      <Link href={`/purchases/${p.id}`} className="font-semibold text-sky-700 hover:underline">
-                        {String(p.ref_no)}
-                      </Link>
-                      <div className="mt-0.5 text-slate-600">{String(p.product_name)}</div>
-                    </td>
-                    <td className="px-5 py-3.5 text-slate-600">{String(p.vendor_name) || "—"}</td>
-                    <td className="px-5 py-3.5 text-right">
-                      <div className="font-medium text-slate-900">
-                        {inr(p.unit_price as number | null)} × {Number(p.quantity)}
-                      </div>
-                      <div className="text-xs font-semibold text-red-600">
-                        Save {inr(p.potential_saving as number | null)}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+      {/* Vinkura insight for the highest-impact flagged purchase */}
+      {topInsight && topFlagged && (
+        <Link href={`/purchases/${topFlagged.id}`} className="block transition hover:opacity-95">
+          <VinkuraAnalyser insight={topInsight} />
+        </Link>
       )}
 
-      <Card className="mt-8 overflow-hidden">
+      {/* Analytics + gauge + value */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader
+            title="Purchase Activity"
+            subtitle="New requests entered this week"
+            action={
+              <Link href="/reports" className="text-sm font-semibold text-primary hover:underline">
+                Reports →
+              </Link>
+            }
+          />
+          <div className="px-5 pb-5">
+            <BarTrend data={week} />
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader title="Approval Rate" subtitle="Approved vs. flagged" />
+          <div className="px-5 pb-5">
+            <DonutGauge value={approvalRate} label="Approved" sublabel={`${counts.approved} of ${decided || 0}`} />
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="grid grid-cols-2 gap-4 p-5 lg:col-span-1">
+          <ValueTile label="Total Value" value={inr(counts.spend)} tone="ink" />
+          <ValueTile label="Potential Savings" value={inr(counts.savings)} tone="green" />
+        </Card>
+
+        {/* Flagged */}
+        <Card className="overflow-hidden lg:col-span-2">
+          <CardHeader
+            title="Flagged Purchases"
+            subtitle="Better prices found online — awaiting review"
+            icon={<IconAlert className="h-5 w-5" />}
+          />
+          {flagged.length === 0 ? (
+            <EmptyState message="Nothing flagged right now. Good news." icon={<IconCheck className="h-5 w-5" />} />
+          ) : (
+            <div className="divide-y divide-[#f2f5f3]">
+              {flagged.map((p) => (
+                <Link
+                  key={p.id}
+                  href={`/purchases/${p.id}`}
+                  className="flex items-center gap-4 px-5 py-3.5 transition hover:bg-[#f7faf8]"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-slate-900">{String(p.product_name)}</div>
+                    <div className="truncate text-xs text-slate-400">
+                      {String(p.ref_no)} · {String(p.vendor_name) || "—"}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-semibold text-slate-900">
+                      {inr(p.unit_price as number | null)} × {Number(p.quantity)}
+                    </div>
+                    <div className="text-xs font-bold text-red-500">
+                      Save {inr(p.potential_saving as number | null)}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* Recent */}
+      <Card className="overflow-hidden">
         <CardHeader
           title="Recent Purchases"
           action={
-            <Link href="/purchases" className="text-sm font-semibold text-sky-700 hover:underline">
+            <Link href="/purchases" className="text-sm font-semibold text-primary hover:underline">
               View all →
             </Link>
           }
         />
-        {recent.length === 0 ? (
-          <EmptyState message='No purchases recorded yet. Add one with "New Request" or import an Excel sheet.' />
+        {recentTop.length === 0 ? (
+          <EmptyState
+            message='No purchases recorded yet. Add one with "New Request" or import an Excel sheet.'
+            icon={<IconReceipt className="h-5 w-5" />}
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="table-modern w-full min-w-[40rem] text-sm">
@@ -125,21 +215,21 @@ export default async function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {recent.map((p) => (
+                {recentTop.map((p) => (
                   <tr key={p.id}>
                     <td>
-                      <Link href={`/purchases/${p.id}`} className="font-semibold text-teal-700 hover:underline">
+                      <Link href={`/purchases/${p.id}`} className="font-semibold text-primary hover:underline">
                         {String(p.ref_no)}
                       </Link>
                       <div className="max-w-65 truncate text-slate-500">{String(p.product_name)}</div>
                     </td>
                     <td className="text-slate-600">{p.created_by_name}</td>
-                    <td className="text-right font-medium text-slate-900">
+                    <td className="text-right font-semibold text-slate-900">
                       {p.unit_price != null ? inr(Number(p.unit_price) * Number(p.quantity)) : "—"}
                     </td>
                     <td><VerdictBadge verdict={String(p.verdict)} /></td>
                     <td><StatusBadge status={String(p.status)} /></td>
-                    <td className="text-slate-500">{formatDate(String(p.created_at))}</td>
+                    <td className="text-slate-400">{formatDate(String(p.created_at))}</td>
                   </tr>
                 ))}
               </tbody>
@@ -147,6 +237,20 @@ export default async function DashboardPage() {
           </div>
         )}
       </Card>
+    </div>
+  );
+}
+
+function ValueTile({ label, value, tone }: { label: string; value: string; tone: "ink" | "green" }) {
+  return (
+    <div className={`soft p-4 ${tone === "green" ? "bg-primary-light" : ""}`}>
+      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-primary shadow-sm">
+        <IconCurrency className="h-5 w-5" />
+      </div>
+      <div className={`mt-3 text-xl font-bold ${tone === "green" ? "text-emerald-800" : "text-slate-900"}`}>
+        {value}
+      </div>
+      <div className="mt-1 text-xs font-medium text-slate-500">{label}</div>
     </div>
   );
 }

@@ -195,6 +195,113 @@ async function flipkartListings(input: ProductInput): Promise<Listing[]> {
   }
 }
 
+/**
+ * Produce categories where local mandi (wholesale) pricing is the right
+ * benchmark rather than e-commerce listings.
+ */
+const PRODUCE_HINTS = [
+  "vegetable",
+  "veg",
+  "fruit",
+  "produce",
+  "grocery",
+  "food",
+  "ration",
+  "kitchen",
+  "pulse",
+  "grain",
+  "spice",
+];
+
+function isProduce(input: ProductInput): boolean {
+  const hay = `${input.category} ${input.productName}`.toLowerCase();
+  return PRODUCE_HINTS.some((h) => hay.includes(h));
+}
+
+/**
+ * Local mandi pricing via eNAM (enam.gov.in) for the configured market
+ * (default: Shahjahanpur). Best-effort — eNAM may rate-limit or change its
+ * endpoint, in which case this returns [] like the other live scrapers.
+ *
+ * eNAM exposes a public trade-data endpoint that returns JSON keyed by
+ * commodity, market and date. We query the configured market for a recent
+ * window and surface modal (most common) wholesale prices, normalising
+ * per-quintal mandi rates to per-kg so they compare to retail expectations.
+ */
+async function emandiListings(input: ProductInput): Promise<Listing[]> {
+  if ((await getSetting("emandi_enabled")) !== "1") return [];
+  if (!isProduce(input)) return [];
+
+  const market = (await getSetting("emandi_market")).trim() || "Shahjahanpur";
+  const state = (await getSetting("emandi_state")).trim() || "Uttar Pradesh";
+
+  // Query a small recent date window — mandis don't trade every day.
+  const today = new Date();
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const fromDate = fmt(new Date(today.getTime() - 10 * 24 * 3600 * 1000));
+  const toDate = fmt(today);
+
+  // The commodity term is the most specific produce word in the request.
+  const commodity =
+    input.productName.split(/\s+/).find((w) => w.length > 2) || input.category;
+
+  try {
+    const res = await fetch("https://enam.gov.in/web/Ajax_ctrl/trade_data_list", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": UA,
+        Accept: "application/json, text/javascript, */*; q=0.01",
+        "X-Requested-With": "XMLHttpRequest",
+      },
+      body: new URLSearchParams({
+        language: "en",
+        stateName: state,
+        apmcName: market,
+        commodityName: commodity,
+        fromDate,
+        toDate,
+      }).toString(),
+      signal: AbortSignal.timeout(10000),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+
+    const json = (await res.json().catch(() => null)) as {
+      data?: Array<{
+        commodity?: string;
+        apmc?: string;
+        modal_price?: string | number;
+        min_price?: string | number;
+        max_price?: string | number;
+        commodity_arrival_date?: string;
+        state?: string;
+      }>;
+    } | null;
+
+    const rows = json?.data ?? [];
+    const out: Listing[] = [];
+    for (const r of rows) {
+      // eNAM modal_price is ₹ per quintal (100 kg) → convert to ₹/kg.
+      const perQuintal = Number(r.modal_price ?? r.min_price ?? 0);
+      if (!isFinite(perQuintal) || perQuintal <= 0) continue;
+      const perKg = Math.round((perQuintal / 100) * 100) / 100;
+      const name = (r.commodity ?? commodity).trim();
+      const when = r.commodity_arrival_date ? ` ${r.commodity_arrival_date}` : "";
+      out.push({
+        source: `eNAM ${market} Mandi`,
+        title: `${name} — wholesale (${market})${when}`,
+        price: perKg,
+        url: "https://enam.gov.in/web/dashboard/trade-data",
+      });
+      if (out.length >= 10) break;
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 /** Internal reference catalog maintained by admins — always available, even offline. */
 async function catalogListings(input: ProductInput): Promise<Listing[]> {
   if ((await getSetting("catalog_enabled")) !== "1") return [];
@@ -225,6 +332,8 @@ async function catalogListings(input: ProductInput): Promise<Listing[]> {
 
 export async function gatherListings(input: ProductInput): Promise<Listing[]> {
   const tasks: Promise<Listing[]>[] = [serperListings(input)];
+  // Local mandi pricing for produce — runs alongside the web sources.
+  tasks.push(withRetry(() => emandiListings(input)));
   if ((await getSetting("scrape_enabled")) === "1") {
     tasks.push(
       withRetry(() => amazonListings(input)),

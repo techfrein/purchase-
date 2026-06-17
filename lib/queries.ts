@@ -88,31 +88,66 @@ export async function fetchPriceListings(purchaseId: number) {
   return data ?? [];
 }
 
+/**
+ * Flagged-share for a category, used by the Vinkura analyser as a benchmark.
+ * Counts via head queries so no rows are transferred.
+ */
+export async function categoryFlagStats(category: string) {
+  if (!category) return { flaggedPct: 0, sample: 0 };
+  const base = () => getSupabase().from("purchases").select("*", { count: "exact", head: true }).eq("category", category);
+  const [totalRes, flaggedRes] = await Promise.all([
+    base(),
+    base().eq("verdict", "BETTER_PRICE_AVAILABLE"),
+  ]);
+  if (totalRes.error) throw totalRes.error;
+  if (flaggedRes.error) throw flaggedRes.error;
+  const sample = totalRes.count ?? 0;
+  const flagged = flaggedRes.count ?? 0;
+  return { flaggedPct: sample > 0 ? (flagged / sample) * 100 : 0, sample };
+}
+
 export async function dashboardCounts(viewer: SessionUser) {
   const scope = purchaseScope(viewer);
   const ctx = await purchaseScopeContext(scope);
-  let q = getSupabase().from("purchases").select("status, verdict, unit_price, quantity, potential_saving");
-  q = applyPurchaseScopeFilter(q, scope, ctx);
-  const { data, error } = await q;
-  if (error) throw error;
-  const rows = data ?? [];
+
+  // A count-only query (head:true) returns just a count, no rows transferred.
+  const scoped = (sel: string, opts?: { count: "exact"; head: true }) =>
+    applyPurchaseScopeFilter(getSupabase().from("purchases").select(sel, opts), scope, ctx);
+
+  // Counts run as cheap head queries; only the spend/savings sums need row
+  // values (PostgREST can't compute unit_price*quantity without an RPC), so
+  // that one query selects the three numeric columns and nothing else.
+  const [totalRes, pendingRes, approvedRes, flaggedRes, sumRes] = await Promise.all([
+    scoped("*", { count: "exact", head: true }),
+    scoped("*", { count: "exact", head: true }).eq("status", "PENDING_REVIEW"),
+    scoped("*", { count: "exact", head: true }).eq("status", "APPROVED"),
+    scoped("*", { count: "exact", head: true }).eq("verdict", "BETTER_PRICE_AVAILABLE"),
+    scoped("unit_price, quantity, potential_saving, status"),
+  ]);
+
+  for (const res of [totalRes, pendingRes, approvedRes, flaggedRes, sumRes]) {
+    if (res.error) throw res.error;
+  }
+
   let spend = 0;
   let savings = 0;
-  let pending = 0;
-  let approved = 0;
-  let flagged = 0;
-  for (const r of rows) {
+  for (const r of (sumRes.data ?? []) as Array<Record<string, unknown>>) {
     const up = r.unit_price != null ? Number(r.unit_price) : 0;
     const qty = Number(r.quantity) || 0;
     spend += up * qty;
-    if (r.status === "PENDING_REVIEW") pending++;
-    if (r.status === "APPROVED") approved++;
-    if (r.verdict === "BETTER_PRICE_AVAILABLE") flagged++;
     if (r.status !== "REJECTED" && r.potential_saving != null) {
       savings += Number(r.potential_saving);
     }
   }
-  return { total: rows.length, pending, approved, flagged, spend, savings };
+
+  return {
+    total: totalRes.count ?? 0,
+    pending: pendingRes.count ?? 0,
+    approved: approvedRes.count ?? 0,
+    flagged: flaggedRes.count ?? 0,
+    spend,
+    savings,
+  };
 }
 
 export async function pendingApprovalsCount() {
@@ -151,20 +186,18 @@ export async function fetchAuditLog(limit = 500) {
     .limit(limit);
   if (error) throw error;
   const rows = data ?? [];
-  const names = await userNameMap(
-    rows.map((r) => r.user_id).filter((x): x is number => x != null)
-  );
-  const users = await getSupabase()
+  const ids = [...new Set(rows.map((r) => r.user_id).filter((x): x is number => x != null))];
+  // One lookup for both name and username instead of two round-trips.
+  const { data: users, error: uErr } = await getSupabase()
     .from("users")
-    .select("id, username")
-    .in("id", rows.map((r) => r.user_id).filter((x): x is number => x != null));
-  if (users.error) throw users.error;
-  const usernameMap = Object.fromEntries((users.data ?? []).map((u) => [u.id, u.username]));
-  return rows.map((r) => ({
-    ...r,
-    user_name: r.user_id != null ? (names[r.user_id] ?? null) : null,
-    username: r.user_id != null ? (usernameMap[r.user_id] ?? null) : null,
-  }));
+    .select("id, name, username")
+    .in("id", ids.length ? ids : [-1]);
+  if (uErr) throw uErr;
+  const userMap = new Map((users ?? []).map((u) => [u.id, u]));
+  return rows.map((r) => {
+    const u = r.user_id != null ? userMap.get(r.user_id) : undefined;
+    return { ...r, user_name: u?.name ?? null, username: u?.username ?? null };
+  });
 }
 
 export async function fetchPendingUsers() {

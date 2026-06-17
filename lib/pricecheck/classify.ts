@@ -87,6 +87,15 @@ export function classifyListing(input: ProductInput, listing: Listing): Classifi
   if (nameOverlap >= 0.8 || (brandMatch && productOverlap >= 0.5)) {
     return { ...listing, matchType: "SAME_PRODUCT", matchScore: round(0.75 + nameOverlap * 0.2) };
   }
+
+  // Commodity / unbranded goods (vegetables, generic supplies, mandi produce)
+  // have no brand or model, so the brand-gated paths above never fire. For these
+  // a strong product-name match alone is a genuine same-product comparison
+  // (e.g. input "Potato" vs listing "Potato — wholesale (Shahjahanpur)").
+  const hasBrandOrModel = brandTokens.length > 0 || modelTokens.length > 0;
+  if (!hasBrandOrModel && nonBrandName.length > 0 && productOverlap >= 0.5) {
+    return { ...listing, matchType: "SAME_PRODUCT", matchScore: round(0.55 + productOverlap * 0.3) };
+  }
   if (brandMatch && productOverlap >= 0.3) {
     return { ...listing, matchType: "SIMILAR", matchScore: round(0.5 + productOverlap * 0.3) };
   }

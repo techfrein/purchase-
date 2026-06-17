@@ -55,13 +55,27 @@ export async function runPriceCheck(purchaseId: number, userId: number): Promise
   const comparable = dropPriceOutliers(
     classified.filter((l) => l.matchType === "SAME_SPEC" || l.matchType === "SIMILAR")
   );
-  const pool = sameProduct.length > 0 ? sameProduct : comparable;
-  const basis =
-    sameProduct.length > 0
-      ? "Compared against identical product listings"
-      : comparable.length > 0
-        ? "No identical listing found — compared against similar / same-spec products"
-        : "No comparable online listing found";
+  // Last-resort tier: alternative listings of the same kind of product (and the
+  // raw fallback hits). These are still real prices for the same item, so they
+  // must feed the verdict — otherwise visible cheaper listings get ignored and
+  // the page wrongly reports "no comparable online listing found".
+  const alternative = dropPriceOutliers(classified.filter((l) => l.matchType === "ALTERNATIVE"));
+
+  let pool: ClassifiedListing[];
+  let basis: string;
+  if (sameProduct.length > 0) {
+    pool = sameProduct;
+    basis = "Compared against identical product listings";
+  } else if (comparable.length > 0) {
+    pool = comparable;
+    basis = "No identical listing found — compared against similar / same-spec products";
+  } else if (alternative.length > 0) {
+    pool = alternative;
+    basis = "No identical or similar listing found — compared against alternative listings of the same kind";
+  } else {
+    pool = [];
+    basis = "No comparable online listing found";
+  }
 
   let verdict = "NEEDS_REVIEW";
   let best: ClassifiedListing | null = null;

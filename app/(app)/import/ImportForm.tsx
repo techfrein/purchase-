@@ -45,12 +45,12 @@ export default function ImportForm() {
 
   return (
     <form onSubmit={handleSubmit}>
-      <div className="rounded-lg border-2 border-dashed border-sky-200 bg-sky-50/50 p-6">
+      <div className="rounded-lg border-2 border-dashed border-emerald-200 bg-emerald-50/50 p-6">
         <input
           type="file"
           accept=".xlsx,.xls,.csv"
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          className="block w-full cursor-pointer text-sm text-slate-600 file:mr-4 file:cursor-pointer file:rounded-md file:border-0 file:bg-sky-500 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-sky-600"
+          className="block w-full cursor-pointer text-sm text-slate-600 file:mr-4 file:cursor-pointer file:rounded-md file:border-0 file:bg-emerald-500 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-emerald-600"
         />
         {file && (
           <p className="mt-3 text-sm font-medium text-slate-700">

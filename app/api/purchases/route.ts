@@ -45,6 +45,7 @@ export async function POST(req: Request) {
       model: String(body.model ?? ""),
       specs: String(body.specs ?? ""),
       quantity: Number(body.quantity),
+      unit: String(body.unit ?? "unit"),
       unitPrice:
         body.unitPrice != null && String(body.unitPrice).trim() !== "" ? Number(body.unitPrice) : null,
       vendorName: String(body.vendorName ?? ""),

@@ -4,13 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ROLE_LABELS } from "@/lib/format";
+import HospitalLogo from "./HospitalLogo";
 import {
   IconChart,
   IconCheck,
   IconClipboard,
   IconDashboard,
+  IconDownload,
   IconLogout,
-  IconMedical,
   IconPlus,
   IconReceipt,
   IconSettings,
@@ -48,11 +49,9 @@ function initials(name: string) {
 
 export default function Sidebar({
   user,
-  hospitalName,
   pendingApprovals = 0,
 }: {
   user: { name: string; role: string };
-  hospitalName: string;
   pendingApprovals?: number;
 }) {
   const pathname = usePathname();
@@ -80,16 +79,21 @@ export default function Sidebar({
         key={item.href}
         href={item.href}
         onClick={() => setOpen(false)}
-        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${
+        className={`group relative flex items-center gap-3 rounded-xl py-2.5 pl-4 pr-3 text-sm font-medium transition ${
           isCurrent
-            ? "bg-sky-100 text-sky-800"
-            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            ? "bg-primary-light text-emerald-900"
+            : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
         }`}
       >
-        <span className={`${isCurrent ? "text-sky-600" : "text-slate-400"}`}>{item.icon}</span>
+        {isCurrent && (
+          <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
+        )}
+        <span className={isCurrent ? "text-primary" : "text-slate-400 group-hover:text-slate-500"}>
+          {item.icon}
+        </span>
         <span className="flex-1">{item.label}</span>
         {item.href === "/admin/approvals" && pendingApprovals > 0 && (
-          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[0.65rem] font-bold text-amber-700">
             {pendingApprovals}
           </span>
         )}
@@ -97,76 +101,102 @@ export default function Sidebar({
     );
   }
 
+  const isAdmin = user.role === "ADMIN" || user.role === "OWNER";
+
   const drawer = (
-    <div className="flex h-full w-60 flex-col border-r border-sky-100 bg-white">
-      <div className="border-b border-sky-100 px-5 py-5">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-500 text-white">
-            <IconMedical className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <div className="truncate text-sm font-semibold leading-tight text-slate-800">{hospitalName}</div>
-            <div className="mt-0.5 text-xs text-slate-500">Purchase Portal</div>
-          </div>
+    <div className="flex h-full w-64 flex-col bg-white">
+      {/* Wordmark */}
+      <div className="px-4 py-5">
+        <HospitalLogo variant="compact" />
+        <div className="mt-1.5 text-[0.7rem] font-medium uppercase tracking-wide text-slate-400">
+          Purchase Portal
         </div>
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-        <div className="mb-2 px-3 text-xs font-medium text-slate-400">Menu</div>
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
+        <div className="mb-1.5 px-4 text-[0.65rem] font-bold uppercase tracking-[0.12em] text-slate-300">
+          Menu
+        </div>
         {MAIN_NAV.map(renderItem)}
-        {(user.role === "ADMIN" || user.role === "OWNER") && (
+        {isAdmin && (
           <>
-            <div className="mb-2 mt-5 px-3 text-xs font-medium text-slate-400">Admin</div>
+            <div className="mb-1.5 mt-6 px-4 text-[0.65rem] font-bold uppercase tracking-[0.12em] text-slate-300">
+              Admin
+            </div>
             {ADMIN_NAV.map(renderItem)}
           </>
         )}
       </nav>
 
-      <div className="border-t border-sky-100 p-4">
-        <div className="flex items-center gap-3 rounded-lg bg-sky-50 px-3 py-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-200 text-xs font-semibold text-sky-800">
+      {/* Promo card, like the reference's "Download our Mobile App" */}
+      <div className="px-4 pb-4">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-primary-deep p-4 text-white">
+          <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
+          <div className="absolute -bottom-8 -left-4 h-20 w-20 rounded-full bg-white/5" />
+          <div className="relative">
+            <div className="text-sm font-bold leading-tight">Bulk import purchases</div>
+            <p className="mt-1 text-xs text-white/80">Upload an Excel sheet to add many at once.</p>
+            <Link
+              href="/import"
+              onClick={() => setOpen(false)}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-primary-deep transition hover:bg-white/90"
+            >
+              <IconDownload className="h-3.5 w-3.5" />
+              Import
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* User + logout */}
+      <div className="border-t border-[#eef1ef] p-3">
+        <div className="flex items-center gap-3 rounded-xl px-2 py-1.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-light text-xs font-bold text-primary-deep">
             {initials(user.name)}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium text-slate-800">{user.name}</div>
-            <div className="truncate text-xs text-slate-500">{ROLE_LABELS[user.role] ?? user.role}</div>
+            <div className="truncate text-sm font-semibold text-slate-900">{user.name}</div>
+            <div className="truncate text-xs text-slate-400">{ROLE_LABELS[user.role] ?? user.role}</div>
           </div>
+          <button
+            onClick={handleLogout}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+            aria-label="Sign out"
+            title="Sign out"
+          >
+            <IconLogout className="h-[1.05rem] w-[1.05rem]" />
+          </button>
         </div>
-        <button
-          onClick={handleLogout}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-sky-100 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"
-        >
-          <IconLogout className="h-4 w-4" />
-          Sign Out
-        </button>
       </div>
     </div>
   );
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-sky-100 bg-white px-4 py-3 lg:hidden">
+      {/* Mobile top bar — logo only; name is already in the banner image */}
+      <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-[#eef1ef] bg-white px-3 py-2.5 lg:hidden">
         <button
           onClick={() => setOpen(true)}
-          className="rounded-lg p-2 text-slate-600 hover:bg-slate-50"
+          className="shrink-0 rounded-lg p-2 text-slate-600 hover:bg-slate-50"
           aria-label="Open menu"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
           </svg>
         </button>
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500 text-white">
-          <IconMedical className="h-4 w-4" />
-        </div>
-        <span className="truncate text-sm font-semibold text-slate-800">{hospitalName}</span>
+        <HospitalLogo variant="bar" className="min-w-0 flex-1" />
       </header>
 
-      <aside className="sticky top-0 hidden h-screen shrink-0 lg:block">{drawer}</aside>
+      {/* Desktop sidebar */}
+      <aside className="sticky top-0 hidden h-screen shrink-0 border-r border-[#eef1ef] lg:block lg:h-auto">
+        {drawer}
+      </aside>
 
+      {/* Mobile drawer */}
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-black/20" onClick={() => setOpen(false)} />
-          <div className="absolute inset-y-0 left-0 shadow-lg">{drawer}</div>
+          <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
+          <div className="absolute inset-y-0 left-0 shadow-xl">{drawer}</div>
         </div>
       )}
     </>

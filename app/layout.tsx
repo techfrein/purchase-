@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
@@ -11,6 +11,17 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "Varun Arjun Medical College — Purchase Portal",
   description: "Hospital purchase price verification and approval tracking",
+  icons: {
+    icon: "/vamc.jpeg",
+    apple: "/vamc.jpeg",
+  },
+};
+
+// Ensure mobile browsers render at device width (not zoomed-out desktop).
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

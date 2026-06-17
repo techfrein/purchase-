@@ -45,7 +45,7 @@ export default function CategoryManager({ initial }: { initial: string[] }) {
         {categories.map((c) => (
           <span
             key={c}
-            className="rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-800"
+            className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800"
           >
             {c}
           </span>

@@ -2,11 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MatchBadge, StatusBadge, VerdictBadge } from "@/components/badges";
 import { IconArrowLeft, IconExternal } from "@/components/icons";
+import VinkuraAnalyser from "@/components/VinkuraAnalyser";
 import { AlertBanner, Card } from "@/components/ui";
+import { analysePurchase } from "@/lib/analyser";
 import { isAdminLike, requireUser } from "@/lib/auth";
+import { unitLabel } from "@/lib/categories";
 import { formatDate, inr, MATCH_LABELS } from "@/lib/format";
 import { canEnterVendorPricing } from "@/lib/purchases";
-import { fetchPriceListings, fetchPurchaseById } from "@/lib/queries";
+import { categoryFlagStats, fetchPriceListings, fetchPurchaseById } from "@/lib/queries";
 import PurchaseActions from "./PurchaseActions";
 
 const MATCH_ORDER = ["SAME_PRODUCT", "SIMILAR", "SAME_SPEC", "ALTERNATIVE"] as const;
@@ -22,13 +25,27 @@ export default async function PurchaseDetailPage({
   const p = await fetchPurchaseById(Number(id), user);
   if (!p) notFound();
 
-  const listings = await fetchPriceListings(Number(id));
+  const [listings, catStats] = await Promise.all([
+    fetchPriceListings(Number(id)),
+    categoryFlagStats(String(p.category)),
+  ]);
 
   const showVendorPricing = canEnterVendorPricing(user.role);
   const unitPrice = p.unit_price != null ? Number(p.unit_price) : null;
   const quantity = Number(p.quantity);
   const bestPrice = p.best_online_price != null ? Number(p.best_online_price) : null;
   const verdict = String(p.verdict);
+
+  const insight = analysePurchase({
+    unitPrice,
+    quantity,
+    bestOnlinePrice: bestPrice,
+    bestOnlineSource: p.best_online_source as string | null,
+    potentialSaving: p.potential_saving != null ? Number(p.potential_saving) : null,
+    verdict,
+    listingPrices: listings.map((l) => Number(l.price)).filter((n) => n > 0),
+    category: catStats,
+  });
   const diffPct =
     bestPrice != null && unitPrice != null ? ((unitPrice - bestPrice) / bestPrice) * 100 : null;
 
@@ -66,7 +83,7 @@ export default async function PurchaseDetailPage({
     ["Brand", String(p.brand) || "—"],
     ["Model", String(p.model) || "—"],
     ["Specifications", String(p.specs) || "—"],
-    ["Quantity", String(quantity)],
+    ["Quantity", `${quantity} ${unitLabel(String(p.unit ?? "unit"))}`],
   ];
   if (showVendorPricing) {
     details.push(
@@ -87,7 +104,7 @@ export default async function PurchaseDetailPage({
     <div className="max-w-5xl">
       <Link
         href="/purchases"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-sky-700 hover:underline"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 hover:underline"
       >
         <IconArrowLeft className="h-4 w-4" />
         Back to purchases
@@ -115,6 +132,12 @@ export default async function PurchaseDetailPage({
         </AlertBanner>
       </div>
 
+      {showVendorPricing && (
+        <div className="mt-4">
+          <VinkuraAnalyser insight={insight} />
+        </div>
+      )}
+
       <div className={`mt-6 grid gap-6 ${showVendorPricing ? "lg:grid-cols-3" : ""}`}>
         {showVendorPricing && (
           <Card className="p-5 lg:col-span-1">
@@ -126,7 +149,7 @@ export default async function PurchaseDetailPage({
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Quantity</span>
-                <span className="font-medium text-slate-900">{quantity}</span>
+                <span className="font-medium text-slate-900">{quantity} {unitLabel(String(p.unit ?? "unit"))}</span>
               </div>
               <div className="flex justify-between border-t border-slate-100 pt-2">
                 <span className="font-medium text-slate-600">Total</span>
@@ -160,7 +183,7 @@ export default async function PurchaseDetailPage({
                     href={String(p.best_online_url)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-sky-700 hover:underline"
+                    className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-emerald-700 hover:underline"
                   >
                     View listing <IconExternal />
                   </a>
@@ -173,7 +196,7 @@ export default async function PurchaseDetailPage({
         )}
 
         <Card className={`p-5 ${showVendorPricing ? "lg:col-span-2" : ""}`}>
-          <h2 className="text-xs font-bold uppercase tracking-widest text-sky-700">Purchase Details</h2>
+          <h2 className="text-xs font-bold uppercase tracking-widest text-emerald-700">Purchase Details</h2>
           <dl className="mt-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
             {details.map(([label, value]) => (
               <div key={label} className="flex justify-between gap-4 border-b border-slate-50 py-2">
@@ -192,6 +215,19 @@ export default async function PurchaseDetailPage({
               {p.decision_note ? (
                 <p className="mt-1.5 text-slate-600">&ldquo;{String(p.decision_note)}&rdquo;</p>
               ) : null}
+              {p.approved_source ? (
+                <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                  <span className="font-medium text-slate-600">Approved against benchmark:</span>
+                  {p.approved_url ? (
+                    <a href={String(p.approved_url)} target="_blank" rel="noopener noreferrer" className="font-medium text-emerald-700 hover:underline">
+                      {String(p.approved_source)}
+                    </a>
+                  ) : (
+                    <span className="font-medium text-slate-700">{String(p.approved_source)}</span>
+                  )}
+                  {p.approved_price != null && <span>· {inr(Number(p.approved_price))}</span>}
+                </p>
+              ) : null}
             </div>
           )}
 
@@ -199,7 +235,14 @@ export default async function PurchaseDetailPage({
             purchaseId={Number(p.id)}
             status={String(p.status)}
             isAdmin={isAdminLike(user.role)}
+            isOwner={user.role === "OWNER"}
             checkedAt={p.checked_at as string | null}
+            listings={listings.map((l) => ({
+              source: String(l.source),
+              title: String(l.title),
+              price: Number(l.price),
+              url: (l.url as string | null) ?? null,
+            }))}
           />
         </Card>
       </div>
@@ -245,7 +288,7 @@ export default async function PurchaseDetailPage({
                       <tr key={l.id}>
                         <td className="max-w-md">
                           {l.url ? (
-                            <a href={l.url} target="_blank" rel="noopener noreferrer" className="font-medium text-sky-700 hover:underline">
+                            <a href={l.url} target="_blank" rel="noopener noreferrer" className="font-medium text-emerald-700 hover:underline">
                               {l.title}
                             </a>
                           ) : (

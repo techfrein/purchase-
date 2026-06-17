@@ -8,8 +8,7 @@ import ApprovalActions from "./ApprovalActions";
 export default async function ApprovalsPage() {
   await requireAdmin();
 
-  const pending = await fetchPendingUsers();
-  const decided = await fetchDecidedUsers();
+  const [pending, decided] = await Promise.all([fetchPendingUsers(), fetchDecidedUsers()]);
 
   return (
     <div className="max-w-4xl">
