@@ -3,10 +3,15 @@ import { getSupabase } from "./supabase";
 
 export const DEFAULT_SETTINGS: Record<string, string> = {
   tolerance_pct: "10",
-  serper_key: "9fa3a931b65a84103e525d2f4de6bd0b3a84c36f",
+  serper_key: "",
+  gemini_key: "",
   scrape_enabled: "1",
   catalog_enabled: "1",
   hospital_name: "Varun Arjun Medical College",
+  // Managed scraping API for B2B sites (see lib/scraping.ts).
+  scrape_provider: "",
+  scrapingbee_key: "",
+  browserless_key: "",
 };
 
 // Deduped per request — getSetting("hospital_name") is read by both the app
@@ -23,7 +28,7 @@ export const getSetting = cache(async function getSetting(key: string): Promise<
 });
 
 export async function isSerperConfigured(): Promise<boolean> {
-  return (await getSetting("serper_key")).trim().length > 0;
+  return false; // deprecated - using Gemini now
 }
 
 export async function setSetting(key: string, value: string) {
@@ -31,13 +36,14 @@ export async function setSetting(key: string, value: string) {
   if (error) throw error;
 }
 
-/** Monthly sequential ref like PUR-202606-0001 */
-export async function nextRefNo(): Promise<string> {
+/** Monthly sequential ref like PUR-202606-0001 or PRQ-/TKT- */
+export async function nextRefNo(prefixBase = "PUR"): Promise<string> {
   const now = new Date();
   const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const prefix = `PUR-${ym}-`;
+  const prefix = `${prefixBase}-${ym}-`;
+  const table = prefixBase === "PRQ" ? "purchase_requests" : prefixBase === "TKT" ? "purchase_tickets" : "purchases";
   const { data, error } = await getSupabase()
-    .from("purchases")
+    .from(table)
     .select("ref_no")
     .like("ref_no", `${prefix}%`)
     .order("id", { ascending: false })

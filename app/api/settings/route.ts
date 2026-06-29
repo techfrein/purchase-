@@ -6,9 +6,13 @@ import { logAudit } from "@/lib/audit";
 const EDITABLE = [
   "tolerance_pct",
   "serper_key",
+  "gemini_key",
   "scrape_enabled",
   "catalog_enabled",
   "hospital_name",
+  "scrape_provider",
+  "scrapingbee_key",
+  "browserless_key",
 ];
 
 export async function POST(req: Request) {

@@ -1,316 +1,150 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MatchBadge, StatusBadge, VerdictBadge } from "@/components/badges";
-import { IconArrowLeft, IconExternal } from "@/components/icons";
-import VinkuraAnalyser from "@/components/VinkuraAnalyser";
-import { AlertBanner, Card } from "@/components/ui";
-import { analysePurchase } from "@/lib/analyser";
+import { IconArrowLeft } from "@/components/icons";
+import { Card } from "@/components/ui";
 import { isAdminLike, requireUser } from "@/lib/auth";
 import { unitLabel } from "@/lib/categories";
-import { formatDate, inr, MATCH_LABELS } from "@/lib/format";
-import { canEnterVendorPricing } from "@/lib/purchases";
-import { categoryFlagStats, fetchPriceListings, fetchPurchaseById } from "@/lib/queries";
-import PurchaseActions from "./PurchaseActions";
-
-const MATCH_ORDER = ["SAME_PRODUCT", "SIMILAR", "SAME_SPEC", "ALTERNATIVE"] as const;
+import { formatDate, inr } from "@/lib/format";
+import { fetchPurchaseRequestById, fetchPurchaseTickets } from "@/lib/requests";
+import RequestReviewPanel from "./RequestReviewPanel";
+import TicketPanel from "./TicketPanel";
 
 export default async function PurchaseDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ type?: string }>;
 }) {
   const user = await requireUser();
-  const { id } = await params;
+  const { id: idStr } = await params;
+  const sp = searchParams ? await searchParams : {};
+  const id = Number(idStr);
 
-  const p = await fetchPurchaseById(Number(id), user);
-  if (!p) notFound();
+  let request: any = null;
+  let ticket: any = null;
 
-  const [listings, catStats] = await Promise.all([
-    fetchPriceListings(Number(id)),
-    categoryFlagStats(String(p.category)),
-  ]);
-
-  const showVendorPricing = canEnterVendorPricing(user.role);
-  const unitPrice = p.unit_price != null ? Number(p.unit_price) : null;
-  const quantity = Number(p.quantity);
-  const bestPrice = p.best_online_price != null ? Number(p.best_online_price) : null;
-  const verdict = String(p.verdict);
-
-  const insight = analysePurchase({
-    unitPrice,
-    quantity,
-    bestOnlinePrice: bestPrice,
-    bestOnlineSource: p.best_online_source as string | null,
-    potentialSaving: p.potential_saving != null ? Number(p.potential_saving) : null,
-    verdict,
-    listingPrices: listings.map((l) => Number(l.price)).filter((n) => n > 0),
-    category: catStats,
-  });
-  const diffPct =
-    bestPrice != null && unitPrice != null ? ((unitPrice - bestPrice) / bestPrice) * 100 : null;
-
-  const verdictBanner: Record<string, { variant: "error" | "success" | "info" | "warning"; text: string }> = {
-    BETTER_PRICE_AVAILABLE: {
-      variant: "error",
-      text: `This purchase is priced ${diffPct != null ? diffPct.toFixed(1) + "% " : ""}above the best price found online. Potential saving: ${inr(p.potential_saving as number | null)}.`,
-    },
-    GOOD_PRICE: {
-      variant: "success",
-      text: "The quoted price is within the acceptable tolerance of the best online price.",
-    },
-    BETTER_THAN_ONLINE: {
-      variant: "info",
-      text: "The quoted price is lower than every comparable online listing found.",
-    },
-    NEEDS_REVIEW: {
-      variant: "warning",
-      text: "No comparable online listing was found. Verify this price manually or add a reference price to the catalog and re-check.",
-    },
-    UNCHECKED: {
-      variant: "info",
-      text: "Price has not been checked yet. Run a price check below.",
-    },
-  };
-  const banner = verdictBanner[verdict] ?? verdictBanner.UNCHECKED;
-
-  const grouped = MATCH_ORDER.map((type) => ({
-    type,
-    items: listings.filter((l) => l.match_type === type),
-  })).filter((g) => g.items.length > 0);
-
-  const details: Array<[string, string]> = [
-    ["Category", String(p.category)],
-    ["Brand", String(p.brand) || "—"],
-    ["Model", String(p.model) || "—"],
-    ["Specifications", String(p.specs) || "—"],
-    ["Quantity", `${quantity} ${unitLabel(String(p.unit ?? "unit"))}`],
-  ];
-  if (showVendorPricing) {
-    details.push(
-      ["Unit Price", inr(unitPrice)],
-      ["Vendor", String(p.vendor_name) || "—"],
-      ["Vendor Contact", String(p.vendor_contact) || "—"],
-      ["Invoice No", String(p.invoice_no) || "—"],
-      ["Invoice Date", String(p.invoice_date) || "—"]
-    );
+  if (sp.type === "request" || !sp.type) {
+    request = await fetchPurchaseRequestById(id, user);
   }
-  details.push(
-    ["Entered By", `${p.created_by_name} · ${formatDate(String(p.created_at))}`],
-    ["Source", String(p.source) === "EXCEL" ? "Excel import" : "Manual entry"],
-    ["Notes", String(p.notes) || "—"]
-  );
+  if (!request && (sp.type === "ticket" || !sp.type)) {
+    const allTickets = await fetchPurchaseTickets(user);
+    ticket = allTickets.find((t: any) => Number(t.id) === id);
+  }
+
+  if (!request && !ticket) {
+    request = await fetchPurchaseRequestById(id, user);
+  }
+
+  if (!request && !ticket) {
+    // Old data has been removed. Only new requests + tickets exist.
+    notFound();
+  }
 
   return (
     <div className="max-w-5xl">
-      <Link
-        href="/purchases"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 hover:underline"
-      >
-        <IconArrowLeft className="h-4 w-4" />
-        Back to purchases
+      <Link href="/purchases" className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline">
+        <IconArrowLeft className="h-4 w-4" /> Back to requests
       </Link>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+      {request && <RequestView request={request} user={user} />}
+      {ticket && <TicketView ticket={ticket} user={user} />}
+    </div>
+  );
+}
+
+function RequestView({ request, user }: { request: any; user: any }) {
+  const isOwner = user.role === "OWNER";
+  const isAdmin = isAdminLike(user.role);
+  const opts = request.selected_options || [];
+  const adminRecs = request.admin_recommendations || [];
+
+  return (
+    <div className="max-w-3xl">
+      <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{String(p.ref_no)}</h1>
-          <p className="mt-1 text-slate-600">{String(p.product_name)}</p>
+          <div className="uppercase text-xs tracking-[1.5px] font-semibold text-primary">PURCHASE REQUEST</div>
+          <div className="text-4xl font-bold tracking-tighter mt-1">{request.ref_no}</div>
         </div>
-        <div className="flex items-center gap-2">
-          <VerdictBadge verdict={verdict} />
-          <StatusBadge status={String(p.status)} />
+        <span className={`mt-1 px-4 py-1 rounded-full text-sm font-semibold ${
+          request.status === "PENDING_ADMIN" ? "bg-amber-100 text-amber-700" :
+          request.status === "PENDING_OWNER" ? "bg-blue-100 text-blue-700" :
+          request.status === "APPROVED" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+        }`}>{request.status.replace("_", " ")}</span>
+      </div>
+
+      {/* Main info card like product header */}
+      <div className="card p-7">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-3xl font-semibold tracking-tight">{request.product_heading}</div>
+            <div className="mt-1 text-sm text-slate-500">Requested by <span className="font-medium text-slate-700">{request.requested_by_name}</span> · {formatDate(request.created_at)}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-sm text-slate-500">Quantity</div>
+            <div className="text-2xl font-semibold">{request.quantity} {unitLabel(request.unit)}</div>
+          </div>
+        </div>
+
+        <div className="mt-6 pt-6 border-t">
+          <div className="text-xs uppercase font-semibold tracking-widest text-slate-400 mb-1">Reason</div>
+          <p className="text-slate-700 text-[15px] leading-relaxed">{request.reason || "—"}</p>
         </div>
       </div>
 
-      <div className="mt-5">
-        <AlertBanner variant={banner.variant}>
-          {banner.text}
-          {p.verdict_basis ? (
-            <div className="mt-1.5 text-xs opacity-80">
-              {String(p.verdict_basis)}{p.checked_at ? ` · checked ${formatDate(String(p.checked_at))}` : ""}
+      {/* Selected options - styled like product variants / options */}
+      <div className="mt-8">
+        <div className="font-semibold text-xl tracking-tight mb-3 px-1">Selected options</div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {opts.length === 0 && <div className="text-sm text-slate-500">No options.</div>}
+          {opts.map((o: any, idx: number) => (
+            <div key={idx} className="border rounded-3xl p-5 bg-white">
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="uppercase text-[10px] tracking-widest text-primary font-semibold">{o.source}</div>
+                  <div className="font-semibold text-[15px] mt-1 leading-tight pr-2">{o.title}</div>
+                </div>
+                <div className="font-semibold text-xl tabular-nums">{inr(o.price)}</div>
+              </div>
+
+              {o.url && <a href={o.url} target="_blank" className="text-xs mt-1 inline-block text-primary hover:underline">View source →</a>}
+
+              {o.selection_reason && (
+                <div className="mt-4 pt-4 border-t text-sm text-slate-600">“{o.selection_reason}”</div>
+              )}
             </div>
-          ) : null}
-        </AlertBanner>
+          ))}
+        </div>
       </div>
 
-      {showVendorPricing && (
-        <div className="mt-4">
-          <VinkuraAnalyser insight={insight} />
+      {adminRecs.length > 0 && (
+        <div className="mt-6 text-sm text-slate-600">Admin notes: {JSON.stringify(adminRecs)}</div>
+      )}
+
+      {/* Actions */}
+      {(isAdmin || isOwner) && request.status !== "APPROVED" && request.status !== "REJECTED" && (
+        <div className="mt-8">
+          <RequestReviewPanel requestId={request.id} currentStatus={request.status} isOwner={isOwner} isAdmin={isAdmin} />
         </div>
       )}
 
-      <div className={`mt-6 grid gap-6 ${showVendorPricing ? "lg:grid-cols-3" : ""}`}>
-        {showVendorPricing && (
-          <Card className="p-5 lg:col-span-1">
-            <h2 className="text-sm font-semibold text-slate-700">Quoted Purchase</h2>
-            <div className="mt-4 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Unit price</span>
-                <span className="font-bold text-slate-900">{inr(unitPrice)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Quantity</span>
-                <span className="font-medium text-slate-900">{quantity} {unitLabel(String(p.unit ?? "unit"))}</span>
-              </div>
-              <div className="flex justify-between border-t border-slate-100 pt-2">
-                <span className="font-medium text-slate-600">Total</span>
-                <span className="text-lg font-bold text-slate-900">
-                  {unitPrice != null ? inr(unitPrice * quantity) : "—"}
-                </span>
-              </div>
-            </div>
+      {request.status === "APPROVED" && request.owner_chosen_option && (
+        <div className="mt-8 p-6 rounded-3xl bg-emerald-50 border border-emerald-200">
+          <div className="uppercase text-xs tracking-widest font-semibold text-emerald-600">OWNER APPROVED</div>
+          <div className="mt-1 text-2xl font-semibold">{request.owner_chosen_option.title}</div>
+          <div className="text-xl mt-1">{inr(request.owner_chosen_option.price)} — {request.owner_chosen_option.source}</div>
+          {request.owner_note && <div className="mt-3 text-sm text-emerald-700">“{request.owner_note}”</div>}
+          <Link href="/purchases?view=tickets" className="mt-4 inline-block text-sm text-primary font-medium">View the ticket →</Link>
+        </div>
+      )}
+    </div>
+  );
+}
 
-            <h2 className="mt-6 text-sm font-semibold text-slate-700">Best Online Price</h2>
-            {bestPrice != null ? (
-              <div className="mt-4 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Price</span>
-                  <span className="font-bold text-slate-900">{inr(bestPrice)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Source</span>
-                  <span className="text-slate-900">{String(p.best_online_source ?? "—")}</span>
-                </div>
-                {unitPrice != null && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Difference</span>
-                    <span className={`font-bold ${unitPrice > bestPrice ? "text-red-600" : "text-green-600"}`}>
-                      {diffPct != null ? `${diffPct > 0 ? "+" : ""}${diffPct.toFixed(1)}%` : "—"}
-                    </span>
-                  </div>
-                )}
-                {p.best_online_url ? (
-                  <a
-                    href={String(p.best_online_url)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-emerald-700 hover:underline"
-                  >
-                    View listing <IconExternal />
-                  </a>
-                ) : null}
-              </div>
-            ) : (
-              <p className="mt-4 text-sm text-slate-500">No comparable listing found.</p>
-            )}
-          </Card>
-        )}
-
-        <Card className={`p-5 ${showVendorPricing ? "lg:col-span-2" : ""}`}>
-          <h2 className="text-xs font-bold uppercase tracking-widest text-emerald-700">Purchase Details</h2>
-          <dl className="mt-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-            {details.map(([label, value]) => (
-              <div key={label} className="flex justify-between gap-4 border-b border-slate-50 py-2">
-                <dt className="text-slate-500">{label}</dt>
-                <dd className="text-right font-medium text-slate-900">{value}</dd>
-              </div>
-            ))}
-          </dl>
-
-          {String(p.status) !== "PENDING_REVIEW" && (
-            <div className="mt-5 rounded-xl bg-slate-50 px-4 py-3.5 text-sm">
-              <span className="font-semibold text-slate-700">
-                {String(p.status) === "APPROVED" ? "Approved" : "Rejected"} by {String(p.decided_by_name ?? "—")}
-              </span>
-              <span className="text-slate-500"> · {formatDate(p.decided_at as string | null)}</span>
-              {p.decision_note ? (
-                <p className="mt-1.5 text-slate-600">&ldquo;{String(p.decision_note)}&rdquo;</p>
-              ) : null}
-              {p.approved_source ? (
-                <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
-                  <span className="font-medium text-slate-600">Approved against benchmark:</span>
-                  {p.approved_url ? (
-                    <a href={String(p.approved_url)} target="_blank" rel="noopener noreferrer" className="font-medium text-emerald-700 hover:underline">
-                      {String(p.approved_source)}
-                    </a>
-                  ) : (
-                    <span className="font-medium text-slate-700">{String(p.approved_source)}</span>
-                  )}
-                  {p.approved_price != null && <span>· {inr(Number(p.approved_price))}</span>}
-                </p>
-              ) : null}
-            </div>
-          )}
-
-          <PurchaseActions
-            purchaseId={Number(p.id)}
-            status={String(p.status)}
-            isAdmin={isAdminLike(user.role)}
-            isOwner={user.role === "OWNER"}
-            checkedAt={p.checked_at as string | null}
-            listings={listings.map((l) => ({
-              source: String(l.source),
-              title: String(l.title),
-              price: Number(l.price),
-              url: (l.url as string | null) ?? null,
-            }))}
-          />
-        </Card>
-      </div>
-
-      <div className="mt-8">
-        <h2 className="text-lg font-bold text-slate-900">
-          Online Listings Found{" "}
-          <span className="text-sm font-normal text-slate-500">({listings.length})</span>
-        </h2>
-        {grouped.length === 0 ? (
-          <Card className="mt-4 p-8 text-center text-sm text-slate-500">
-            {p.checked_at ? (
-              <>
-                <p>Online price check completed but no matching listings were found.</p>
-                <p className="mt-2 text-xs">
-                  For reliable results across Indian stores, add a Serper.dev API key in{" "}
-                  <span className="font-medium text-slate-600">Admin → Settings</span> (or set{" "}
-                  <code className="rounded bg-slate-100 px-1">SERPER_API_KEY</code> in{" "}
-                  <code className="rounded bg-slate-100 px-1">.env.local</code>), then click
-                  Re-check Price below.
-                </p>
-              </>
-            ) : (
-              <p>
-                No listings yet. Click Check Online Price below to search Google Shopping, Amazon,
-                Flipkart, and the internal reference catalog.
-              </p>
-            )}
-          </Card>
-        ) : (
-          grouped.map((group) => (
-            <Card key={group.type} className="mt-4 overflow-hidden">
-              <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/50 px-5 py-3">
-                <MatchBadge matchType={group.type} />
-                <span className="text-xs text-slate-500">
-                  {group.items.length} listing(s) · {MATCH_LABELS[group.type]}
-                </span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="table-modern w-full text-sm">
-                  <tbody>
-                    {group.items.map((l) => (
-                      <tr key={l.id}>
-                        <td className="max-w-md">
-                          {l.url ? (
-                            <a href={l.url} target="_blank" rel="noopener noreferrer" className="font-medium text-emerald-700 hover:underline">
-                              {l.title}
-                            </a>
-                          ) : (
-                            <span className="text-slate-700">{l.title}</span>
-                          )}
-                        </td>
-                        <td className="text-slate-600">{l.source}</td>
-                        <td className="text-right text-xs text-slate-400">
-                          match {(Number(l.match_score) * 100).toFixed(0)}%
-                        </td>
-                        <td className={`text-right font-semibold ${unitPrice != null && Number(l.price) < unitPrice ? "text-red-600" : "text-slate-900"}`}>
-                          {inr(Number(l.price))}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          ))
-        )}
-      </div>
+function TicketView({ ticket, user }: { ticket: any; user: any }) {
+  return (
+    <div className="mt-4">
+      <TicketPanel ticket={ticket} viewerRole={user.role} viewerId={user.id} />
     </div>
   );
 }

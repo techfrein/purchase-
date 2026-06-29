@@ -73,24 +73,42 @@ export default function SettingsForm({
           </span>
         </label>
 
-        <FormSection title="Price Data Sources">
-          <label className="mt-2 flex items-start gap-3 text-sm text-slate-700">
+        <FormSection title="AI Product Research (New Flow)">
+          <label className="label mt-2 block">
+            Serper API Key (live pricing)
             <input
-              type="checkbox"
-              checked={values.scrape_enabled === "1"}
-              onChange={(e) => set("scrape_enabled", e.target.checked ? "1" : "0")}
-              className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600"
+              type="password"
+              value={values.serper_key}
+              onChange={(e) => set("serper_key", e.target.value)}
+              placeholder="paste your serper.dev key"
+              className={inputClass}
             />
-            <span>
-              <span className="font-semibold">Direct store search (Amazon.in, Flipkart)</span>
-              <span className="mt-0.5 block text-xs text-slate-500">
-                Best-effort scraping of public search pages. Large stores often block automated
-                requests, so results can be intermittent.
-              </span>
+            <span className="mt-1.5 block text-xs font-normal text-slate-500">
+              Powers live product <strong>prices</strong> via Google Shopping (serper.dev).<br/>
+              <strong>Recommended:</strong> Set <code>SERPER_API_KEY</code> in <code>.env.local</code>.
+              A key pasted here is used only when no env var is set.
             </span>
           </label>
 
-          <label className="mt-4 flex items-start gap-3 text-sm text-slate-700">
+          <label className="label mt-5 block">
+            Gemini API Key (product images)
+            <input
+              type="password"
+              value={values.gemini_key}
+              onChange={(e) => set("gemini_key", e.target.value)}
+              placeholder="AIza... paste your Gemini key"
+              className={inputClass}
+            />
+            <span className="mt-1.5 block text-xs font-normal text-slate-500">
+              Used to pick the best matching product <strong>image</strong> for each option.<br/>
+              <strong>Recommended:</strong> Set <code>GEMINI_KEY</code> in <code>.env.local</code>.
+              A key pasted here is used only when no env var is set.
+            </span>
+          </label>
+        </FormSection>
+
+        <FormSection title="Legacy Price Sources (kept for old records)">
+          <label className="mt-2 flex items-start gap-3 text-sm text-slate-700">
             <input
               type="checkbox"
               checked={values.catalog_enabled === "1"}
@@ -99,30 +117,6 @@ export default function SettingsForm({
             />
             <span>
               <span className="font-semibold">Internal reference catalog</span>
-              <span className="mt-0.5 block text-xs text-slate-500">
-                Benchmark prices maintained by admins — works offline and guarantees a verdict.
-              </span>
-            </span>
-          </label>
-
-          <label className="label mt-4 block">
-            Serper.dev API Key <span className="font-normal text-slate-400">(required for reliable online prices)</span>
-            <input
-              type="password"
-              value={values.serper_key}
-              onChange={(e) => set("serper_key", e.target.value)}
-              placeholder="Paste key to enable Google Shopping results"
-              className={inputClass}
-            />
-            <span className="mt-1.5 block text-xs font-normal text-slate-500">
-              {serperConfigured ? (
-                <span className="font-medium text-emerald-600">Serper is configured — online price checks are enabled.</span>
-              ) : (
-                <>
-                  Without this key the app only tries Amazon/Flipkart scraping, which frequently
-                  fails. Get a free key at serper.dev (2,500 free credits).
-                </>
-              )}
             </span>
           </label>
         </FormSection>

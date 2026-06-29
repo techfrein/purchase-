@@ -30,6 +30,8 @@ export const PURCHASE_UNITS = [
   { value: "g", label: "Grams (g)" },
   { value: "litre", label: "Litres (L)" },
   { value: "ml", label: "Millilitres (ml)" },
+  { value: "metre", label: "Metres (m)" },
+  { value: "cm", label: "Centimetres (cm)" },
   { value: "dozen", label: "Dozen" },
   { value: "quintal", label: "Quintal" },
   { value: "box", label: "Box" },
@@ -50,6 +52,8 @@ export function unitLabel(value: string): string {
     case "g": return "g";
     case "litre": return "L";
     case "ml": return "ml";
+    case "metre": return "m";
+    case "cm": return "cm";
     case "dozen": return "dozen";
     case "quintal": return "qtl";
     case "box": return "box";

@@ -7,62 +7,43 @@ export default function AuthLayout({
   subtitle,
   children,
   footer,
+  leftImage,
 }: {
   hospitalName: string;
   title: string;
   subtitle: string;
   children: ReactNode;
   footer?: ReactNode;
+  leftImage?: string;
 }) {
   return (
     <main className="flex min-h-screen">
-      <div className="auth-panel hidden w-[42%] flex-col justify-between p-10 lg:flex">
-        <div>
-          <HospitalLogo variant="header" priority />
-          <div className="mt-2 text-sm text-slate-500">Purchase Verification Portal</div>
+      {leftImage ? (
+        <div
+          className="hidden lg:flex w-[38%] bg-cover bg-center relative"
+          style={{ backgroundImage: `url(${leftImage})` }}
+        >
+          {/* subtle overlay for better text if needed, but pure image for now */}
         </div>
-
-        <div className="max-w-sm">
-          <h2 className="text-2xl font-semibold leading-snug text-slate-800">
-            Keep hospital purchases fair and transparent
-          </h2>
-          <p className="mt-3 text-sm leading-relaxed text-slate-600">
-            Check vendor quotes against online prices, flag overpriced items, and keep a clear record
-            of every purchase decision.
-          </p>
-          <ul className="mt-6 space-y-2 text-sm text-slate-600">
-            <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              Automatic price verification
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              Admin approval workflow
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              Excel bulk import
-            </li>
-          </ul>
+      ) : (
+        <div className="hidden lg:flex w-[38%] bg-gradient-to-br from-primary to-primary-dark text-white p-10 flex-col justify-between">
+          <div>
+            <div className="text-2xl font-bold tracking-tighter">Purchase Portal</div>
+            <div className="text-sm opacity-70 mt-1">Varun Arjun Medical College</div>
+          </div>
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight leading-none">Transparent.<br />Fair.<br />Simple.</h2>
+            <p className="mt-3 text-sm opacity-80">Modern tools for requesting, comparing and approving purchases.</p>
+          </div>
+          <div className="text-xs opacity-60">© {new Date().getFullYear()} {hospitalName}</div>
         </div>
+      )}
 
-        <p className="text-xs text-slate-400">
-          &copy; {new Date().getFullYear()} {hospitalName}
-        </p>
-      </div>
-
-      <div className="flex flex-1 flex-col items-center justify-center bg-[var(--background)] px-6 py-10">
-        <div className="w-full max-w-md">
-          <div className="mb-8 lg:hidden">
-            <HospitalLogo variant="header" className="mx-auto w-full max-w-xs sm:max-w-sm" priority />
-            <p className="mt-4 text-center text-sm text-slate-500">{subtitle}</p>
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="w-full max-w-[360px]">
+          <div className="lg:hidden text-center mb-8">
+            <div className="font-bold text-2xl tracking-tighter">Purchase Portal</div>
           </div>
-
-          <div className="mb-6 hidden lg:block">
-            <h1 className="text-xl font-semibold text-slate-800">{title}</h1>
-            <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
-          </div>
-
           {children}
           {footer}
         </div>

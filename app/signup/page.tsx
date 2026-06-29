@@ -12,6 +12,7 @@ export default async function SignupPage() {
       hospitalName={hospitalName}
       title="Request access"
       subtitle="Create an account — admin approval required"
+      leftImage="/signup.jpg"
       footer={
         <p className="mt-6 text-center text-sm text-slate-500">
           Already have an account?{" "}

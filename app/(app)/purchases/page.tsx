@@ -1,148 +1,115 @@
 import Link from "next/link";
-import { StatusBadge, VerdictBadge } from "@/components/badges";
 import { IconPlus } from "@/components/icons";
-import {
-  Button,
-  DataTable,
-  EmptyState,
-  FilterBar,
-  FilterField,
-  PageHeader,
-  inputClass,
-} from "@/components/ui";
-import { isAdminLike, requireUser } from "@/lib/auth";
+import { Button, PageHeader } from "@/components/ui";
+import { requireUser, isAdminLike } from "@/lib/auth";
+import { formatDate, inr } from "@/lib/format";
 import { unitLabel } from "@/lib/categories";
-import { formatDate, inr, STATUS_LABELS, VERDICT_LABELS } from "@/lib/format";
-import { fetchPurchases } from "@/lib/queries";
-import RowActions from "./RowActions";
+import { fetchPurchaseRequests, fetchPurchaseTickets } from "@/lib/requests";
 
-type SearchParams = Promise<{ status?: string; verdict?: string; q?: string }>;
+type SearchParams = Promise<{ view?: string; status?: string }>;
 
-export default async function PurchasesPage({ searchParams }: { searchParams: SearchParams }) {
+export default async function PurchaseRequestsPage({ searchParams }: { searchParams: SearchParams }) {
   const user = await requireUser();
-  const { status = "", verdict = "", q = "" } = await searchParams;
+  const sp = await searchParams;
+  const view = (sp.view === "tickets") ? "tickets" : "requests";
 
-  const filters: { status?: string; verdict?: string; q?: string } = {};
-  if (status && STATUS_LABELS[status]) filters.status = status;
-  if (verdict && VERDICT_LABELS[verdict]) filters.verdict = verdict;
-  if (q) filters.q = q;
+  const reqRows = await fetchPurchaseRequests(user, sp.status);
+  const tickets = await fetchPurchaseTickets(user);
 
-  const rows = await fetchPurchases({ viewer: user, limit: 500, filters });
-
-  const canDecide = isAdminLike(user.role); // OWNER + ADMIN
-  const canDelete = user.role === "OWNER";
-  const showActions = canDecide || canDelete;
+  const canAdmin = isAdminLike(user.role);
+  const isOwner = user.role === "OWNER";
 
   return (
-    <div>
-      <PageHeader
-        title="Purchases"
-        description={`${rows.length} record(s) in the system`}
-        action={
-          <Button href="/purchases/new">
-            <IconPlus className="h-4 w-4" />
-            New Request
-          </Button>
-        }
-      />
+    <div className="max-w-5xl">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Requests</h1>
+          <p className="text-sm text-slate-500 mt-1">Staff &amp; Purchase submit options → Admin → Owner approves with purchaser &amp; PDF</p>
+        </div>
+        <Button href="/purchases/new">
+          <IconPlus className="h-4 w-4" />
+          New Request
+        </Button>
+      </div>
 
-      <form method="GET">
-        <FilterBar>
-          <FilterField label="Search">
-            <input
-              type="text"
-              name="q"
-              defaultValue={q}
-              placeholder="Product, ref no or vendor…"
-              className={`${inputClass} !mt-0 sm:w-56`}
-            />
-          </FilterField>
-          <FilterField label="Status">
-            <select name="status" defaultValue={status} className={`${inputClass} !mt-0`}>
-              <option value="">All</option>
-              {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </FilterField>
-          <FilterField label="Price Verdict">
-            <select name="verdict" defaultValue={verdict} className={`${inputClass} !mt-0`}>
-              <option value="">All</option>
-              {Object.entries(VERDICT_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </FilterField>
-          <div className="flex items-center gap-2">
-            <button type="submit" className="btn btn-dark flex-1 sm:flex-none">Filter</button>
-            <Link href="/purchases" className="px-2 py-2 text-sm font-medium text-slate-500 hover:text-slate-700">
-              Reset
-            </Link>
+      <div className="flex gap-2 mb-6 text-sm">
+        <Link href="/purchases" className={`px-4 py-1.5 rounded-full border transition ${view === "requests" ? "bg-primary text-white border-primary" : "border-slate-200 hover:bg-slate-50"}`}>Active Requests</Link>
+        <Link href="/purchases?view=tickets" className={`px-4 py-1.5 rounded-full border transition ${view === "tickets" ? "bg-primary text-white border-primary" : "border-slate-200 hover:bg-slate-50"}`}>Approved Tickets</Link>
+      </div>
+
+      {view === "tickets" ? (
+        <TicketsList tickets={tickets} />
+      ) : (
+        <RequestsList rows={reqRows} canAdmin={canAdmin} isOwner={isOwner} />
+      )}
+    </div>
+  );
+}
+
+function RequestsList({ rows, canAdmin, isOwner }: { rows: any[]; canAdmin: boolean; isOwner: boolean }) {
+  if (!rows || rows.length === 0) {
+    return <div className="card p-10 text-center text-slate-500 rounded-3xl">No requests yet.</div>;
+  }
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      {rows.map((r) => {
+        const opts = r.selected_options || [];
+        const statusColor = r.status === "PENDING_ADMIN" ? "bg-amber-100 text-amber-700" :
+                            r.status === "PENDING_OWNER" ? "bg-blue-100 text-blue-700" :
+                            r.status === "APPROVED" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700";
+
+        return (
+          <Link key={r.id} href={`/purchases/${r.id}?type=request`} className="card p-5 hover:border-primary/40 transition block">
+            <div className="flex justify-between items-start">
+              <div>
+                <div className="font-semibold text-lg tracking-tight">{r.ref_no}</div>
+                <div className="text-sm text-slate-600 mt-0.5 line-clamp-2">{r.product_heading}</div>
+              </div>
+              <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold ${statusColor}`}>{r.status.replace("_", " ")}</span>
+            </div>
+
+            <div className="mt-4 flex items-center gap-4 text-sm">
+              <div>{r.quantity} {unitLabel(r.unit)}</div>
+              <div className="text-xs text-slate-500">• {opts.length} options selected</div>
+              <div className="text-xs text-slate-500 ml-auto">by {r.requested_by_name}</div>
+            </div>
+
+            <div className="mt-3 text-xs text-slate-400">{formatDate(r.created_at)}</div>
+
+            {(canAdmin || isOwner) && r.status !== "APPROVED" && r.status !== "REJECTED" && (
+              <div className="mt-4">
+                <span className="inline-block text-xs px-3 py-1 rounded-full bg-primary text-white font-medium">Review →</span>
+              </div>
+            )}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+function TicketsList({ tickets }: { tickets: any[] }) {
+  if (!tickets || tickets.length === 0) return <div className="card p-10 text-center text-slate-500 rounded-3xl">No approved tickets yet.</div>;
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      {tickets.map((t) => (
+        <Link key={t.id} href={`/purchases/${t.id}?type=ticket`} className="card p-5 hover:border-primary/40 transition block">
+          <div className="font-semibold text-lg tracking-tight">{t.ref_no}</div>
+          <div className="mt-1 text-sm text-slate-700 line-clamp-1">{t.product_title} <span className="text-xs text-slate-400">({t.source})</span></div>
+
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="text-2xl font-semibold tabular-nums">{inr(t.unit_price)}</span>
+            <span className="text-sm text-slate-500">× {t.quantity} {t.unit}</span>
           </div>
-        </FilterBar>
-      </form>
 
-      <DataTable>
-        {rows.length === 0 ? (
-          <tbody>
-            <tr><td colSpan={showActions ? 11 : 10}><EmptyState message="No purchases match these filters." /></td></tr>
-          </tbody>
-        ) : (
-          <>
-            <thead>
-              <tr>
-                <th>Ref No</th>
-                <th>Product</th>
-                <th>Category</th>
-                <th>Vendor</th>
-                <th className="text-right">Qty</th>
-                <th className="text-right">Unit Price</th>
-                <th className="text-right">Total</th>
-                <th>Verdict</th>
-                <th>Status</th>
-                <th>Entered</th>
-                {showActions && <th className="text-right">Actions</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((p) => (
-                <tr key={p.id}>
-                  <td>
-                    <Link href={`/purchases/${p.id}`} className="font-medium text-emerald-700 hover:underline">
-                      {String(p.ref_no)}
-                    </Link>
-                  </td>
-                  <td className="max-w-60 truncate text-slate-700">{String(p.product_name)}</td>
-                  <td className="text-slate-600">{String(p.category)}</td>
-                  <td className="text-slate-600">{String(p.vendor_name) || "—"}</td>
-                  <td className="text-right text-slate-700">{Number(p.quantity)} {unitLabel(String(p.unit ?? "unit"))}</td>
-                  <td className="text-right text-slate-700">{inr(p.unit_price as number | null)}</td>
-                  <td className="text-right font-semibold text-slate-900">
-                    {p.unit_price != null ? inr(Number(p.unit_price) * Number(p.quantity)) : "—"}
-                  </td>
-                  <td><VerdictBadge verdict={String(p.verdict)} /></td>
-                  <td><StatusBadge status={String(p.status)} /></td>
-                  <td className="text-slate-500">
-                    <div>{formatDate(String(p.created_at))}</div>
-                    <div className="text-xs">{p.created_by_name}</div>
-                  </td>
-                  {showActions && (
-                    <td className="text-right">
-                      <RowActions
-                        purchaseId={Number(p.id)}
-                        refNo={String(p.ref_no)}
-                        status={String(p.status)}
-                        canDecide={canDecide}
-                        canDelete={canDelete}
-                      />
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </>
-        )}
-      </DataTable>
+          <div className="mt-4 text-xs text-slate-500 flex justify-between">
+            <span>Approved {formatDate(t.approved_at)}</span>
+            <span>Purchaser: #{t.purchaser_id}</span>
+          </div>
+        </Link>
+      ))}
     </div>
   );
 }

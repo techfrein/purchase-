@@ -20,7 +20,7 @@ export type NewPurchase = {
 };
 
 export async function createPurchase(data: NewPurchase, userId: number): Promise<number> {
-  const refNo = await nextRefNo();
+  const refNo = await nextRefNo("PUR");
   const unitPrice =
     data.unitPrice != null && isFinite(data.unitPrice) && data.unitPrice > 0 ? data.unitPrice : null;
 
@@ -63,8 +63,9 @@ export async function createPurchase(data: NewPurchase, userId: number): Promise
   return id;
 }
 
-export function canEnterVendorPricing(role: string): boolean {
-  return role !== "STAFF";
+export function canEnterVendorPricing(_role: string): boolean {
+  // Deprecated - vendor quotes removed from new flow
+  return false;
 }
 
 export function sanitizePurchaseBody(body: Record<string, unknown>, role: string): Record<string, unknown> {

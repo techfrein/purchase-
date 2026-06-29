@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card, inputClass } from "@/components/ui";
 import { IconCheck } from "@/components/icons";
@@ -8,31 +8,31 @@ import { IconCheck } from "@/components/icons";
 export default function SignupForm() {
   const router = useRouter();
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const [done, setDone] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
-    setBusy(true);
-    const data = Object.fromEntries(new FormData(e.currentTarget).entries());
-    try {
-      const res = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(body.error ?? "Could not create the account.");
-        return;
+
+    startTransition(async () => {
+      const data = Object.fromEntries(new FormData(e.currentTarget).entries());
+      try {
+        const res = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setError(body.error ?? "Could not create the account.");
+          return;
+        }
+        setDone(true);
+      } catch {
+        setError("Could not reach the server. Try again.");
       }
-      setDone(true);
-    } catch {
-      setError("Could not reach the server. Try again.");
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
   if (done) {
@@ -92,8 +92,13 @@ export default function SignupForm() {
         {error && (
           <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
         )}
-        <button type="submit" disabled={busy} className="btn btn-primary mt-6 w-full py-2.5">
-          {busy ? "Submitting…" : "Request Account"}
+        <button 
+          type="submit" 
+          disabled={isPending} 
+          className={`btn btn-primary mt-6 w-full py-2.5 ${isPending ? 'loading' : ''}`}
+        >
+          <span className="spinner" />
+          <span className="btn-text">{isPending ? "Submitting…" : "Request Account"}</span>
         </button>
         <p className="mt-4 text-center text-xs text-slate-400">
           New accounts require administrator approval before first sign-in.

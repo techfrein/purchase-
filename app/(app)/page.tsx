@@ -1,256 +1,202 @@
 import Link from "next/link";
-import { StatusBadge, VerdictBadge } from "@/components/badges";
-import { BarTrend, DonutGauge } from "@/components/charts";
 import {
-  IconAlert,
   IconCheck,
-  IconCurrency,
-  IconPlus,
   IconReceipt,
-  IconTrending,
 } from "@/components/icons";
-import VinkuraAnalyser from "@/components/VinkuraAnalyser";
-import { Button, Card, CardHeader, EmptyState, StatCard } from "@/components/ui";
-import { analysePurchase } from "@/lib/analyser";
-import { isAdminLike, requireUser } from "@/lib/auth";
-import { getSetting } from "@/lib/db";
-import { formatDate, inr } from "@/lib/format";
-import { dashboardCounts, fetchPurchases } from "@/lib/queries";
-
-const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
+import { Button, Card, StatCard } from "@/components/ui";
+import { requireUser } from "@/lib/auth";
+import { inr, formatDate } from "@/lib/format";
+import { fetchPurchaseRequests, fetchPurchaseTickets, newFlowDashboardCounts } from "@/lib/requests";
 
 export default async function DashboardPage() {
   const user = await requireUser();
 
-  // Independent reads run concurrently rather than as sequential round-trips.
-  const [hospitalName, counts, flagged, recent] = await Promise.all([
-    getSetting("hospital_name"),
-    dashboardCounts(user),
-    fetchPurchases({
-      viewer: user,
-      limit: 5,
-      filters: { verdict: "BETTER_PRICE_AVAILABLE", status: "PENDING_REVIEW" },
-      order: { column: "potential_saving", ascending: false },
-    }),
-    fetchPurchases({ viewer: user, limit: 40 }),
+  const [newCounts, recentRequests, recentTickets] = await Promise.all([
+    newFlowDashboardCounts(user),
+    fetchPurchaseRequests(user),
+    fetchPurchaseTickets(user),
   ]);
 
-  // Weekly activity, derived from the rows we already have (no extra query).
-  const week = WEEKDAYS.map((label) => ({ label, value: 0 }));
-  for (const p of recent) {
-    const d = new Date(String(p.created_at));
-    if (!isNaN(d.getTime())) week[d.getDay()].value += 1;
-  }
-
-  const decided = counts.approved + counts.flagged;
-  const approvalRate = decided > 0 ? (counts.approved / decided) * 100 : 0;
-  const recentTop = recent.slice(0, 7);
-
-  // Vinkura insight for the highest-impact flagged purchase (admins/owner only).
-  const topFlagged = flagged[0];
-  const topInsight =
-    isAdminLike(user.role) && topFlagged
-      ? analysePurchase({
-          unitPrice: topFlagged.unit_price != null ? Number(topFlagged.unit_price) : null,
-          quantity: Number(topFlagged.quantity),
-          bestOnlinePrice:
-            topFlagged.best_online_price != null ? Number(topFlagged.best_online_price) : null,
-          bestOnlineSource: topFlagged.best_online_source as string | null,
-          potentialSaving:
-            topFlagged.potential_saving != null ? Number(topFlagged.potential_saving) : null,
-          verdict: String(topFlagged.verdict),
-        })
-      : null;
+  const recent = [...recentRequests, ...recentTickets]
+    .sort((a, b) => new Date(String(b.created_at)).getTime() - new Date(String(a.created_at)).getTime())
+    .slice(0, 8);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Dashboard</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Monitor purchase requests, verify prices, and track savings across {hospitalName}.
+    <div className="space-y-8">
+      {/* Hero banner - vibrant and inviting */}
+      <div className="rounded-3xl overflow-hidden bg-gradient-to-br from-blue-600 via-primary to-indigo-600 text-white p-9 md:p-12 relative">
+        <div className="absolute inset-0 bg-[radial-gradient(#ffffff_0.5px,transparent_1px)] bg-[length:4px_4px] opacity-10"></div>
+        <div className="relative max-w-lg">
+          <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-white/20 text-xs font-semibold tracking-widest mb-4">
+            🏥 VARUN ARJUN MEDICAL COLLEGE
+          </div>
+          <h1 className="text-5xl md:text-[52px] leading-[1.05] font-bold tracking-[-2.2px]">Smart purchasing<br />starts here.</h1>
+          <p className="mt-4 text-lg text-white/90 max-w-md">
+            Discover trusted suppliers and get the best prices with real-time market data.
           </p>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Button href="/purchases/new" className="bg-white text-primary hover:bg-white/95 px-8 font-semibold">
+              New Request
+            </Button>
+            <Button href="/vegetables" className="bg-white/15 hover:bg-white/25 text-white border border-white/30 px-6">
+              🥕 Vegetables (eNAM)
+            </Button>
+          </div>
         </div>
-        <Button href="/purchases/new">
-          <IconPlus className="h-4 w-4" />
-          New Request
-        </Button>
       </div>
 
-      {/* Stat row */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard
-          label="Total Purchases"
-          value={String(counts.total)}
-          icon={<IconReceipt className="h-5 w-5" />}
-          featured
-          href="/purchases"
-          caption="All requests on record"
+      {/* Categories grid - colorful and inviting */}
+      <div>
+        <div className="px-1 flex justify-between mb-3 items-end">
+          <div className="font-semibold text-xl tracking-tight">Quick Categories</div>
+          <Link href="/purchases/new" className="text-sm text-primary font-medium">Browse all →</Link>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          {[
+            { name: "Vegetables", icon: "🥕", color: "bg-emerald-100 text-emerald-700 hover:bg-emerald-200", href: "/vegetables" },
+            { name: "Medical Equipment", icon: "🩺", color: "bg-blue-100 text-blue-700 hover:bg-blue-200" },
+            { name: "Laptops & IT", icon: "💻", color: "bg-violet-100 text-violet-700 hover:bg-violet-200" },
+            { name: "Furniture", icon: "🪑", color: "bg-amber-100 text-amber-700 hover:bg-amber-200" },
+            { name: "Printers & Office", icon: "🖨️", color: "bg-slate-100 text-slate-700 hover:bg-slate-200" },
+            { name: "Networking", icon: "🌐", color: "bg-cyan-100 text-cyan-700 hover:bg-cyan-200" },
+          ].map((cat, i) => (
+            <Link 
+              key={i} 
+              href={cat.href || "/purchases/new"} 
+              className={`group rounded-3xl p-5 flex flex-col items-start gap-3 border border-transparent shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 ${cat.color}`}
+            >
+              <div className="text-3xl">{cat.icon}</div>
+              <div className="font-semibold text-base">{cat.name}</div>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Vegetables Spotlight - extra colorful callout */}
+      <Link href="/vegetables" className="rounded-3xl bg-gradient-to-r from-emerald-400 via-teal-500 to-cyan-500 p-6 text-white flex items-center gap-4 hover:brightness-105 transition-all">
+        <div className="text-5xl">🥕</div>
+        <div className="flex-1">
+          <div className="uppercase text-xs tracking-[1.5px] font-semibold opacity-90">DEDICATED SECTION</div>
+          <div className="font-bold text-2xl leading-none mt-1">Vegetables via eNAM</div>
+          <div className="text-sm mt-1 opacity-90">Official wholesale mandi prices • Accurate unit pricing</div>
+        </div>
+        <div className="text-2xl opacity-80">→</div>
+      </Link>
+
+      {/* Quick Stats - vibrant cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard 
+          label="Total Requests" 
+          value={String(newCounts.requestsTotal)} 
+          icon={<IconReceipt />} 
+          accent="violet" 
+          href="/purchases" 
         />
-        <StatCard
-          label="Pending Review"
-          value={String(counts.pending ?? 0)}
-          icon={<IconAlert className="h-5 w-5" />}
-          accent="amber"
-          href="/purchases?status=PENDING_REVIEW"
+        <StatCard 
+          label="Pending Admin" 
+          value={String(newCounts.pendingAdmin)} 
+          icon={<IconCheck />} 
+          accent="amber" 
+          href="/purchases" 
         />
-        <StatCard
-          label="Approved"
-          value={String(counts.approved ?? 0)}
-          icon={<IconCheck className="h-5 w-5" />}
+        <StatCard 
+          label="Pending Owner" 
+          value={String(newCounts.pendingOwner)} 
+          icon={<IconCheck />} 
+          accent="blue" 
+          href="/purchases" 
+        />
+        <StatCard 
+          label="Approved Tickets" 
+          value={String(newCounts.tickets)}
+          icon={<IconCheck />}
           accent="green"
-          href="/purchases?status=APPROVED"
-        />
-        <StatCard
-          label="Flagged Overpriced"
-          value={String(counts.flagged ?? 0)}
-          icon={<IconTrending className="h-5 w-5" />}
-          accent="red"
-          href="/purchases?verdict=BETTER_PRICE_AVAILABLE"
+          href="/purchases?view=tickets"
         />
       </div>
 
-      {/* Vinkura insight for the highest-impact flagged purchase */}
-      {topInsight && topFlagged && (
-        <Link href={`/purchases/${topFlagged.id}`} className="block transition hover:opacity-95">
-          <VinkuraAnalyser insight={topInsight} />
+      {/* Quick Actions - colorful buttons */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Link href="/purchases/new" className="rounded-3xl bg-gradient-to-br from-blue-500 to-primary text-white p-5 flex flex-col justify-between hover:scale-[1.01] transition">
+          <div className="text-2xl">➕</div>
+          <div>
+            <div className="font-semibold">New Purchase Request</div>
+            <div className="text-xs opacity-80">General items & equipment</div>
+          </div>
         </Link>
-      )}
-
-      {/* Analytics + gauge + value */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader
-            title="Purchase Activity"
-            subtitle="New requests entered this week"
-            action={
-              <Link href="/reports" className="text-sm font-semibold text-primary hover:underline">
-                Reports →
-              </Link>
-            }
-          />
-          <div className="px-5 pb-5">
-            <BarTrend data={week} />
+        <Link href="/vegetables" className="rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-5 flex flex-col justify-between hover:scale-[1.01] transition">
+          <div className="text-2xl">🥕</div>
+          <div>
+            <div className="font-semibold">Vegetables (eNAM)</div>
+            <div className="text-xs opacity-80">Official mandi rates</div>
           </div>
-        </Card>
-
-        <Card>
-          <CardHeader title="Approval Rate" subtitle="Approved vs. flagged" />
-          <div className="px-5 pb-5">
-            <DonutGauge value={approvalRate} label="Approved" sublabel={`${counts.approved} of ${decided || 0}`} />
+        </Link>
+        <Link href="/import" className="rounded-3xl bg-white border hover:border-primary p-5 flex flex-col justify-between transition">
+          <div className="text-2xl text-primary">📊</div>
+          <div>
+            <div className="font-semibold text-slate-900">Bulk Import</div>
+            <div className="text-xs text-slate-500">Upload Excel sheet</div>
           </div>
-        </Card>
+        </Link>
+        <Link href="/reports" className="rounded-3xl bg-white border hover:border-primary p-5 flex flex-col justify-between transition">
+          <div className="text-2xl text-primary">📈</div>
+          <div>
+            <div className="font-semibold text-slate-900">View Reports</div>
+            <div className="text-xs text-slate-500">Spending & analysis</div>
+          </div>
+        </Link>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="grid grid-cols-2 gap-4 p-5 lg:col-span-1">
-          <ValueTile label="Total Value" value={inr(counts.spend)} tone="ink" />
-          <ValueTile label="Potential Savings" value={inr(counts.savings)} tone="green" />
-        </Card>
+      {/* Recent activity - colorful cards */}
+      <div>
+        <div className="px-1 flex justify-between mb-3 items-end">
+          <div className="font-semibold text-xl tracking-tight">Recent Activity</div>
+          <Link href="/purchases" className="text-sm text-primary font-medium">See all →</Link>
+        </div>
 
-        {/* Flagged */}
-        <Card className="overflow-hidden lg:col-span-2">
-          <CardHeader
-            title="Flagged Purchases"
-            subtitle="Better prices found online — awaiting review"
-            icon={<IconAlert className="h-5 w-5" />}
-          />
-          {flagged.length === 0 ? (
-            <EmptyState message="Nothing flagged right now. Good news." icon={<IconCheck className="h-5 w-5" />} />
-          ) : (
-            <div className="divide-y divide-[#f2f5f3]">
-              {flagged.map((p) => (
+        {recent.length === 0 ? (
+          <div className="p-8 text-sm text-slate-500 bg-white rounded-3xl border text-center">No activity yet. Start by creating a new request.</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {recent.slice(0, 6).map((item: any, index) => {
+              const isTicket = !!item.product_title;
+              const colors = [
+                "bg-blue-50 border-blue-100 text-blue-700",
+                "bg-emerald-50 border-emerald-100 text-emerald-700",
+                "bg-violet-50 border-violet-100 text-violet-700",
+                "bg-amber-50 border-amber-100 text-amber-700",
+                "bg-cyan-50 border-cyan-100 text-cyan-700",
+                "bg-rose-50 border-rose-100 text-rose-700",
+              ];
+              const color = colors[index % colors.length];
+              
+              return (
                 <Link
-                  key={p.id}
-                  href={`/purchases/${p.id}`}
-                  className="flex items-center gap-4 px-5 py-3.5 transition hover:bg-[#f7faf8]"
+                  href={isTicket ? `/purchases/${item.id}?type=ticket` : `/purchases/${item.id}?type=request`}
+                  key={`${isTicket ? "ticket" : "request"}-${item.id}`}
+                  className={`group p-4 rounded-3xl border flex flex-col justify-between hover:shadow-md transition-all ${color}`}
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold text-slate-900">{String(p.product_name)}</div>
-                    <div className="truncate text-xs text-slate-400">
-                      {String(p.ref_no)} · {String(p.vendor_name) || "—"}
+                  <div>
+                    <div className="font-semibold text-base line-clamp-2 group-hover:underline">
+                      {isTicket ? item.product_title : item.product_heading}
                     </div>
+                    <div className="text-[11px] opacity-70 mt-1">{item.ref_no}</div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold text-slate-900">
-                      {inr(p.unit_price as number | null)} × {Number(p.quantity)}
-                    </div>
-                    <div className="text-xs font-bold text-red-500">
-                      Save {inr(p.potential_saving as number | null)}
-                    </div>
+                  <div className="mt-4 flex items-center justify-between text-xs">
+                    <span className="font-medium">
+                      {isTicket ? inr(item.unit_price) : item.status}
+                    </span>
+                    <span className="opacity-70">{formatDate(item.created_at)}</span>
                   </div>
                 </Link>
-              ))}
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {/* Recent */}
-      <Card className="overflow-hidden">
-        <CardHeader
-          title="Recent Purchases"
-          action={
-            <Link href="/purchases" className="text-sm font-semibold text-primary hover:underline">
-              View all →
-            </Link>
-          }
-        />
-        {recentTop.length === 0 ? (
-          <EmptyState
-            message='No purchases recorded yet. Add one with "New Request" or import an Excel sheet.'
-            icon={<IconReceipt className="h-5 w-5" />}
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="table-modern w-full min-w-[40rem] text-sm">
-              <thead>
-                <tr>
-                  <th>Ref / Product</th>
-                  <th>Entered By</th>
-                  <th className="text-right">Amount</th>
-                  <th>Verdict</th>
-                  <th>Status</th>
-                  <th>Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentTop.map((p) => (
-                  <tr key={p.id}>
-                    <td>
-                      <Link href={`/purchases/${p.id}`} className="font-semibold text-primary hover:underline">
-                        {String(p.ref_no)}
-                      </Link>
-                      <div className="max-w-65 truncate text-slate-500">{String(p.product_name)}</div>
-                    </td>
-                    <td className="text-slate-600">{p.created_by_name}</td>
-                    <td className="text-right font-semibold text-slate-900">
-                      {p.unit_price != null ? inr(Number(p.unit_price) * Number(p.quantity)) : "—"}
-                    </td>
-                    <td><VerdictBadge verdict={String(p.verdict)} /></td>
-                    <td><StatusBadge status={String(p.status)} /></td>
-                    <td className="text-slate-400">{formatDate(String(p.created_at))}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              );
+            })}
           </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 }
 
-function ValueTile({ label, value, tone }: { label: string; value: string; tone: "ink" | "green" }) {
-  return (
-    <div className={`soft p-4 ${tone === "green" ? "bg-primary-light" : ""}`}>
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-primary shadow-sm">
-        <IconCurrency className="h-5 w-5" />
-      </div>
-      <div className={`mt-3 text-xl font-bold ${tone === "green" ? "text-emerald-800" : "text-slate-900"}`}>
-        {value}
-      </div>
-      <div className="mt-1 text-xs font-medium text-slate-500">{label}</div>
-    </div>
-  );
-}
+

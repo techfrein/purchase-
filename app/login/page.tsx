@@ -12,6 +12,7 @@ export default async function LoginPage() {
       hospitalName={hospitalName}
       title="Welcome back"
       subtitle="Sign in to the purchase verification portal"
+      leftImage="/signup.jpg"
       footer={
         <>
           <p className="mt-6 text-center text-sm text-slate-500">

@@ -3,7 +3,6 @@ import { apiUser } from "@/lib/auth";
 import { fetchCategories } from "@/lib/categories";
 import { fetchPurchases } from "@/lib/queries";
 import { createPurchase, sanitizePurchaseBody, validatePurchasePayload } from "@/lib/purchases";
-import { runPriceCheck } from "@/lib/pricecheck/engine";
 
 export async function GET(req: Request) {
   const user = await apiUser();
@@ -58,10 +57,6 @@ export async function POST(req: Request) {
     user.id
   );
 
-  try {
-    await runPriceCheck(id, user.id);
-  } catch {
-    // Purchase stays UNCHECKED; re-check from detail page.
-  }
+  // Legacy path — no automatic Gemini or serper price check for old form entries
   return NextResponse.json({ id }, { status: 201 });
 }

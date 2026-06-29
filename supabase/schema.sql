@@ -158,7 +158,8 @@ INSERT INTO settings (key, value) VALUES
   ('hospital_name',   'Varun Arjun Medical College'),
   ('tolerance_pct',   '10'),
   ('serper_key',      ''),
-  ('scrape_enabled',  '1'),
+  ('gemini_key',      ''),
+  ('scrape_enabled',  '0'),
   ('catalog_enabled', '1'),
   ('emandi_enabled',  '1'),
   ('emandi_market',   'Shahjahanpur'),
@@ -186,3 +187,70 @@ ON CONFLICT (username) DO NOTHING;
 -- ALTER TABLE purchases ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 -- (Add policies based on your auth strategy when you connect the API keys)
+
+-- ============================================================================
+-- NEW PURCHASE WORKFLOW (added 2024-06)
+-- See supabase/migrations/20240621_new_purchase_workflow.sql for a clean
+-- migration you can run in the SQL editor on an existing database.
+-- The definitions below are here so a full schema reset also includes them.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS purchase_requests (
+  id                    BIGSERIAL PRIMARY KEY,
+  ref_no                TEXT NOT NULL UNIQUE,
+  requested_by          BIGINT NOT NULL REFERENCES users(id),
+  product_heading       TEXT NOT NULL,
+  quantity              NUMERIC(12, 3) NOT NULL DEFAULT 1,
+  unit                  TEXT NOT NULL DEFAULT 'unit',
+  reason                TEXT NOT NULL DEFAULT '',
+  selected_options      JSONB NOT NULL DEFAULT '[]'::jsonb,
+  status                TEXT NOT NULL DEFAULT 'PENDING_ADMIN'
+                        CHECK (status IN ('PENDING_ADMIN', 'PENDING_OWNER', 'APPROVED', 'REJECTED')),
+  admin_note            TEXT NOT NULL DEFAULT '',
+  admin_recommendations JSONB NOT NULL DEFAULT '[]'::jsonb,
+  admin_decided_by      BIGINT REFERENCES users(id),
+  admin_decided_at      TIMESTAMPTZ,
+  owner_note            TEXT NOT NULL DEFAULT '',
+  owner_chosen_option   JSONB,
+  owner_decided_by      BIGINT REFERENCES users(id),
+  owner_decided_at      TIMESTAMPTZ,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS purchase_tickets (
+  id               BIGSERIAL PRIMARY KEY,
+  ref_no           TEXT NOT NULL UNIQUE,
+  request_id       BIGINT REFERENCES purchase_requests(id),
+  product_title    TEXT NOT NULL,
+  source           TEXT NOT NULL,
+  unit_price       NUMERIC(12, 2) NOT NULL,
+  quantity         NUMERIC(12, 3) NOT NULL DEFAULT 1,
+  unit             TEXT NOT NULL DEFAULT 'unit',
+  chosen_url       TEXT,
+  requested_by     BIGINT REFERENCES users(id),
+  requested_reason TEXT,
+  approved_by      BIGINT REFERENCES users(id),
+  approved_at      TIMESTAMPTZ,
+  purchaser_id     BIGINT REFERENCES users(id),   -- who is responsible to acquire
+  recipient_ids    BIGINT[] DEFAULT '{}',          -- users to receive the PDF ticket
+  notes            TEXT NOT NULL DEFAULT '',
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_pr_status ON purchase_requests(status);
+CREATE INDEX IF NOT EXISTS idx_pr_requested_by ON purchase_requests(requested_by);
+CREATE INDEX IF NOT EXISTS idx_pr_created ON purchase_requests(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_pt_request ON purchase_tickets(request_id);
+CREATE INDEX IF NOT EXISTS idx_pt_purchaser ON purchase_tickets(purchaser_id);
+
+-- updated_at trigger for requests
+DROP TRIGGER IF EXISTS purchase_requests_updated_at ON purchase_requests;
+CREATE TRIGGER purchase_requests_updated_at
+  BEFORE UPDATE ON purchase_requests
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- Safe column additions for old purchases table (no breaking)
+ALTER TABLE purchases ADD COLUMN IF NOT EXISTS request_id BIGINT;
+ALTER TABLE purchases ADD COLUMN IF NOT EXISTS ticket_id BIGINT;
