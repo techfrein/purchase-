@@ -1,30 +1,28 @@
 import { MATCH_LABELS, ROLE_LABELS, STATUS_LABELS, VERDICT_LABELS } from "@/lib/format";
 
-const DOT = "before:mr-1.5 before:h-1.5 before:w-1.5 before:rounded-full before:bg-current before:content-['']";
-
 const VERDICT_STYLES: Record<string, string> = {
-  UNCHECKED: "bg-slate-100 text-slate-500",
-  BETTER_PRICE_AVAILABLE: "bg-red-50 text-red-600",
-  GOOD_PRICE: "bg-emerald-50 text-emerald-600",
-  BETTER_THAN_ONLINE: "bg-sky-50 text-sky-600",
-  NEEDS_REVIEW: "bg-amber-50 text-amber-600",
+  UNCHECKED: "chip-neutral",
+  BETTER_PRICE_AVAILABLE: "chip-brick",
+  GOOD_PRICE: "chip-sage",
+  BETTER_THAN_ONLINE: "chip-mist",
+  NEEDS_REVIEW: "chip-honey",
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  PENDING_REVIEW: "bg-amber-50 text-amber-600",
-  APPROVED: "bg-emerald-50 text-emerald-600",
-  REJECTED: "bg-red-50 text-red-600",
+  PENDING_REVIEW: "chip-honey",
+  APPROVED: "chip-sage",
+  REJECTED: "chip-brick",
 };
 
 const MATCH_STYLES: Record<string, string> = {
-  SAME_PRODUCT: "bg-sky-50 text-sky-600",
-  SIMILAR: "bg-violet-50 text-violet-600",
-  SAME_SPEC: "bg-blue-50 text-blue-600",
-  ALTERNATIVE: "bg-slate-100 text-slate-500",
+  SAME_PRODUCT: "chip-mist",
+  SIMILAR: "chip-plum",
+  SAME_SPEC: "chip-teal",
+  ALTERNATIVE: "chip-neutral",
 };
 
-function Badge({ label, style, dot = true }: { label: string; style: string; dot?: boolean }) {
-  return <span className={`chip ${dot ? DOT : ""} ${style}`}>{label}</span>;
+function Badge({ label, style }: { label: string; style: string }) {
+  return <span className={`chip ${style}`}>{label}</span>;
 }
 
 export function VerdictBadge({ verdict }: { verdict: string }) {
@@ -40,7 +38,7 @@ export function StatusBadge({ status }: { status: string }) {
   return (
     <Badge
       label={STATUS_LABELS[status] ?? status}
-      style={STATUS_STYLES[status] ?? "bg-slate-100 text-slate-600 border-slate-200"}
+      style={STATUS_STYLES[status] ?? "chip-neutral"}
     />
   );
 }
@@ -55,18 +53,17 @@ export function MatchBadge({ matchType }: { matchType: string }) {
 }
 
 const ROLE_STYLES: Record<string, string> = {
-  OWNER: "bg-amber-50 text-amber-700",
-  ADMIN: "bg-indigo-50 text-indigo-600",
-  STAFF: "bg-sky-50 text-sky-600",
-  PURCHASE: "bg-blue-50 text-blue-600",
+  OWNER: "chip-honey",
+  ADMIN: "chip-plum",
+  STAFF: "chip-mist",
+  PURCHASE: "chip-teal",
 };
 
 export function RoleBadge({ role }: { role: string }) {
   return (
     <Badge
       label={ROLE_LABELS[role] ?? role}
-      style={ROLE_STYLES[role] ?? "bg-slate-100 text-slate-500"}
-      dot={false}
+      style={ROLE_STYLES[role] ?? "chip-neutral"}
     />
   );
 }

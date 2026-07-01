@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Card, inputClass } from "@/components/ui";
+import { inputClass } from "@/components/ui";
 import { IconCheck } from "@/components/icons";
 
 export default function SignupForm() {
@@ -37,23 +37,30 @@ export default function SignupForm() {
 
   if (done) {
     return (
-      <Card elevated className="p-8 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+      <div className="overflow-hidden rounded-3xl border border-[var(--line)] bg-white p-8 text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-600">
           <IconCheck className="h-8 w-8" />
         </div>
-        <h2 className="text-lg font-bold text-slate-900">Request submitted</h2>
-        <p className="mt-2 text-sm leading-relaxed text-slate-600">
+        <h2 className="text-xl font-bold tracking-tight text-slate-900">Request submitted</h2>
+        <p className="mt-2 text-sm leading-relaxed text-slate-500">
           Your account is awaiting administrator approval. You can sign in once it has been approved.
         </p>
         <button onClick={() => router.push("/login")} className="btn btn-primary mt-6 w-full py-2.5">
           Back to Sign In
         </button>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <Card elevated className="p-6 sm:p-8">
+    <div className="overflow-hidden rounded-3xl border border-[var(--line)] bg-white p-6 sm:p-8">
+      <div className="mb-6 text-center">
+        <div className="text-3xl font-bold tracking-tight text-slate-900">
+          Create Account
+        </div>
+        <div className="mt-2 text-base text-slate-500">Request access to the purchase portal</div>
+      </div>
+
       <form onSubmit={handleSubmit}>
         <label className="label">
           Full Name
@@ -92,10 +99,10 @@ export default function SignupForm() {
         {error && (
           <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
         )}
-        <button 
-          type="submit" 
-          disabled={isPending} 
-          className={`btn btn-primary mt-6 w-full py-2.5 ${isPending ? 'loading' : ''}`}
+        <button
+          type="submit"
+          disabled={isPending}
+          className={`btn btn-primary mt-6 w-full py-2.5 ${isPending ? "loading" : ""}`}
         >
           <span className="spinner" />
           <span className="btn-text">{isPending ? "Submitting…" : "Request Account"}</span>
@@ -104,6 +111,6 @@ export default function SignupForm() {
           New accounts require administrator approval before first sign-in.
         </p>
       </form>
-    </Card>
+    </div>
   );
 }

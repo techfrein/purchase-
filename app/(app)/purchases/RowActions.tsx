@@ -86,7 +86,7 @@ export default function RowActions({
         <button
           onClick={() => setConfirming(false)}
           disabled={busy !== ""}
-          className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+          className="rounded-lg border border-[var(--line)] px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
         >
           No
         </button>

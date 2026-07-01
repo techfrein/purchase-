@@ -225,13 +225,13 @@ ${list}
 
 Return ONLY JSON:
 {
-  "attributes": ["<8 to 14 spec names relevant to this product, most important first>"],
+  "attributes": ["<6 to 8 spec names relevant to this product, most important first>"],
   "values": [ { "<attribute>": "<value for option 0, or '—' if not stated>", ... }, { ...option 1... } ],
   "verdict": "<one sentence on the key differences / which is most capable>"
 }
 Rules: "values" MUST have exactly ${options.length} objects, in the same order as the options. Every object MUST contain every attribute key. Keep values short (a few words). Infer reasonable values from the title when obvious; use "—" only when truly unknown.`;
 
-  const raw = await geminiJson(key, prompt, { maxOutputTokens: 2048 });
+  const raw = await geminiJson(key, prompt, { maxOutputTokens: 1024 });
   if (!raw) return null;
   try {
     const o = JSON.parse(raw) as Partial<SpecComparison>;
@@ -409,8 +409,13 @@ function buildShoppingQueries(heading: string): string[] {
   const base = heading.replace(/\s+/g, " ").trim();
   const queries = [base, `${base} buy online india`];
 
+  // Default to only the 2 highest-coverage retailers (Amazon + Flipkart). The
+  // bare + buy-intent queries already surface most major stores, so the extra
+  // site-scoped queries had diminishing returns at 1 Serper credit each. Raise
+  // SERPER_SITE_QUERIES to widen coverage at higher cost.
+  const DEFAULT_SITE_QUERIES = 2;
   const limitRaw = Number(process.env.SERPER_SITE_QUERIES);
-  const siteLimit = Number.isFinite(limitRaw) ? limitRaw : RETAILER_SITES.length;
+  const siteLimit = Number.isFinite(limitRaw) ? limitRaw : DEFAULT_SITE_QUERIES;
   for (const site of RETAILER_SITES.slice(0, Math.max(0, siteLimit))) {
     queries.push(`${base} site:${site}`);
   }
@@ -746,96 +751,44 @@ async function scrapeIndustryBuying(query: string): Promise<GeminiOption[]> {
 }
 
 // ---------------------------------------------------------------------------
-// IMAGES — Gemini picks the best real image URL per option.
+// IMAGES — best-effort, zero extra API cost.
+//
+// Serper Shopping listings already arrive with their own correct product image,
+// which covers the large majority of options. Anything left without one falls
+// back to a Serper image search ONLY when explicitly enabled, and we never spend
+// a Gemini call ranking images (it was a big input prompt for pure polish). Most
+// listings keep their real image; the rest show the UI's source placeholder.
 // ---------------------------------------------------------------------------
 
-/**
- * Gathers real candidate image URLs from Serper's image search for the heading,
- * then asks Gemini to assign the single most relevant real URL to each option.
- * Options that already have an image (Serper shopping) keep theirs.
- */
 async function attachImages(heading: string, options: GeminiOption[]): Promise<GeminiOption[]> {
   const needImages = options.filter((o) => !o.image);
+  // Usually empty — Shopping items carry their own image. Skip the network call.
   if (needImages.length === 0) return options;
 
+  // Opt-in only: an extra Serper image search costs a credit per search, so it
+  // stays off by default. Set SERPER_IMAGE_SEARCH=1 to re-enable richer images.
+  if (process.env.SERPER_IMAGE_SEARCH !== "1") return options;
+
   const serperKey = await getSerperKey();
-  const geminiKey = await getGeminiKey();
+  if (!serperKey) return options;
 
-  // Candidate real image URLs from Serper image search.
-  let candidates: string[] = [];
-  if (serperKey) {
-    const imgs = await serperPost<{
-      images?: Array<{ imageUrl?: string; title?: string }>;
-    }>(serperKey, "images", heading);
-    candidates = (imgs?.images ?? [])
-      .map((i) => i.imageUrl)
-      .filter((u): u is string => !!u && /^https?:\/\//.test(u))
-      .slice(0, 12);
-  }
+  const imgs = await serperPost<{
+    images?: Array<{ imageUrl?: string; title?: string }>;
+  }>(serperKey, "images", heading);
+  const candidates = (imgs?.images ?? [])
+    .map((i) => i.imageUrl)
+    .filter((u): u is string => !!u && /^https?:\/\//.test(u))
+    .slice(0, 12);
 
-  if (candidates.length === 0) {
-    // No real candidates available — leave images null (UI shows a placeholder).
-    return options;
-  }
+  if (candidates.length === 0) return options;
 
-  // Without Gemini, just hand the first relevant real image to each option.
-  if (!geminiKey) {
-    needImages.forEach((o, i) => {
-      o.image = candidates[i % candidates.length];
-    });
-    return options;
-  }
-
-  const chosen = await geminiPickImages(
-    geminiKey,
-    heading,
-    needImages.map((o) => o.title),
-    candidates
-  );
-
+  // Assign the first relevant real image to each option that lacks one. No
+  // Gemini ranking — the source placeholder is a fine fallback otherwise.
   needImages.forEach((o, i) => {
-    const url = chosen[i];
-    // Only accept URLs that were in our real candidate list (no hallucinations).
-    o.image = url && candidates.includes(url) ? url : candidates[i % candidates.length];
+    o.image = candidates[i % candidates.length];
   });
 
   return options;
-}
-
-/**
- * Ask Gemini to map each product title to the index of the best-matching real
- * image URL. Returns one chosen URL per title (or null). Gemini only selects
- * from the candidate list — it never invents a URL.
- */
-async function geminiPickImages(
-  key: string,
-  heading: string,
-  titles: string[],
-  candidates: string[]
-): Promise<(string | null)[]> {
-  const prompt = `You are matching product photos to listings for "${heading}".
-
-Candidate image URLs (index: url):
-${candidates.map((u, i) => `${i}: ${u}`).join("\n")}
-
-Products that need an image (index: title):
-${titles.map((t, i) => `${i}: ${t}`).join("\n")}
-
-For each product, choose the index of the candidate image that best shows that exact product. Reply with ONLY a JSON array of integers (the chosen candidate index for each product, in order). If none fit a product, use -1. Example: [2,0,-1,5]`;
-
-  const text = await geminiJson(key, prompt);
-  if (!text) return titles.map(() => null);
-  try {
-    const arr = JSON.parse(text) as number[];
-    return titles.map((_, i) => {
-      const idx = arr[i];
-      return Number.isInteger(idx) && idx >= 0 && idx < candidates.length
-        ? candidates[idx]
-        : null;
-    });
-  } catch {
-    return titles.map(() => null);
-  }
 }
 
 /**

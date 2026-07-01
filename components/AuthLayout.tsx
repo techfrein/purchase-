@@ -3,8 +3,6 @@ import HospitalLogo from "./HospitalLogo";
 
 export default function AuthLayout({
   hospitalName,
-  title,
-  subtitle,
   children,
   footer,
   leftImage,
@@ -17,35 +15,46 @@ export default function AuthLayout({
   leftImage?: string;
 }) {
   return (
-    <main className="flex min-h-screen">
-      {leftImage ? (
-        <div
-          className="hidden lg:flex w-[38%] bg-cover bg-center relative"
-          style={{ backgroundImage: `url(${leftImage})` }}
-        >
-          {/* subtle overlay for better text if needed, but pure image for now */}
-        </div>
-      ) : (
-        <div className="hidden lg:flex w-[38%] bg-gradient-to-br from-primary to-primary-dark text-white p-10 flex-col justify-between">
-          <div>
-            <div className="text-2xl font-bold tracking-tighter">Purchase Portal</div>
-            <div className="text-sm opacity-70 mt-1">Varun Arjun Medical College</div>
+    <main className="app-canvas min-h-screen p-3 sm:p-4 lg:p-6">
+      <div className="app-shell flex flex-col lg:flex-row">
+        {leftImage ? (
+          <div
+            className="relative hidden w-full border-b border-[var(--line)] bg-cover bg-center lg:block lg:w-[38%] lg:border-b-0 lg:border-r"
+            style={{ backgroundImage: `url(${leftImage})` }}
+          />
+        ) : (
+          <div className="hidden w-full flex-col justify-between border-b border-[var(--line)] bg-white p-10 lg:flex lg:w-[38%] lg:border-b-0 lg:border-r">
+            <div>
+              <HospitalLogo variant="compact" />
+              <div className="section-label mt-2 text-slate-600">Purchase Portal</div>
+            </div>
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight leading-tight text-slate-900">
+                Transparent.
+                <br />
+                Fair.
+                <br />
+                Simple.
+              </h2>
+              <p className="mt-3 text-sm text-slate-500">
+                Modern tools for requesting, comparing and approving purchases.
+              </p>
+            </div>
+            <div className="text-xs text-slate-400">
+              © {new Date().getFullYear()} {hospitalName}
+            </div>
           </div>
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight leading-none">Transparent.<br />Fair.<br />Simple.</h2>
-            <p className="mt-3 text-sm opacity-80">Modern tools for requesting, comparing and approving purchases.</p>
-          </div>
-          <div className="text-xs opacity-60">© {new Date().getFullYear()} {hospitalName}</div>
-        </div>
-      )}
+        )}
 
-      <div className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-[360px]">
-          <div className="lg:hidden text-center mb-8">
-            <div className="font-bold text-2xl tracking-tighter">Purchase Portal</div>
+        <div className="app-main flex flex-1 items-center justify-center border-t border-[var(--line)] p-6 lg:border-t-0">
+          <div className="w-full max-w-[400px]">
+            <div className="mb-8 text-center lg:hidden">
+              <HospitalLogo variant="compact" className="mx-auto" />
+              <div className="section-label mt-2">Purchase Portal</div>
+            </div>
+            {children}
+            {footer}
           </div>
-          {children}
-          {footer}
         </div>
       </div>
     </main>

@@ -1,5 +1,4 @@
-import { RoleBadge } from "@/components/badges";
-import { Card, CardHeader, DataTable, PageHeader } from "@/components/ui";
+import { ActivityList, ActivityRow, Card, CardHeader, PageHeader } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { fetchUsers } from "@/lib/queries";
@@ -13,33 +12,23 @@ export default async function UsersPage() {
     <div className="max-w-4xl">
       <PageHeader
         title="Users"
-        description="Manage staff and purchase-department accounts. Only the owner can create or change administrator and owner accounts."
+        description="Manage staff and purchase-department accounts."
       />
 
-      <DataTable>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Username</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th>Created</th>
-            <th className="text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
+      {users.length === 0 ? (
+        <div className="rounded-3xl border border-[var(--line)] bg-white p-10 text-center text-base text-slate-500">
+          No users yet.
+        </div>
+      ) : (
+        <ActivityList>
           {users.map((u) => (
-            <tr key={u.id}>
-              <td className="font-semibold text-slate-900">{u.name}</td>
-              <td className="text-slate-600">{u.username}</td>
-              <td><RoleBadge role={u.role} /></td>
-              <td>
-                <span className={`text-sm font-medium ${u.active ? "text-emerald-600" : "text-slate-400"}`}>
-                  {u.active ? "Active" : "Deactivated"}
-                </span>
-              </td>
-              <td className="text-slate-500">{formatDate(u.created_at)}</td>
-              <td className="text-right">
+            <ActivityRow
+              key={u.id}
+              icon={u.name.charAt(0)}
+              title={u.name}
+              subtitle={`${u.username} · ${u.role}${u.active ? "" : " · off"}`}
+              meta={formatDate(u.created_at)}
+              trailing={
                 <UserManager
                   mode="row"
                   userId={u.id}
@@ -48,11 +37,11 @@ export default async function UsersPage() {
                   targetRole={u.role}
                   viewerRole={admin.role}
                 />
-              </td>
-            </tr>
+              }
+            />
           ))}
-        </tbody>
-      </DataTable>
+        </ActivityList>
+      )}
 
       <Card className="mt-8 overflow-hidden">
         <CardHeader title="Add User" />

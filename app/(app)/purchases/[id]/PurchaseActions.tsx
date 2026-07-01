@@ -75,7 +75,7 @@ export default function PurchaseActions({
   const showPicker = canDecide && isOwner && listings.length > 0;
 
   return (
-    <div className="mt-6 border-t border-slate-100 pt-5">
+    <div className="mt-6 border-t border-[var(--line)] pt-5">
       <div className="flex flex-wrap items-center gap-3">
         <button onClick={recheck} disabled={busy !== ""} className="btn btn-secondary">
           <IconRefresh className="h-4 w-4" />
@@ -111,7 +111,7 @@ export default function PurchaseActions({
               className={`rounded-xl border px-3 py-2.5 text-left text-sm transition ${
                 chosen == null
                   ? "border-primary bg-primary-light"
-                  : "border-slate-200 hover:border-slate-300"
+                  : "border-[var(--line)] hover:border-[var(--line)]"
               }`}
             >
               <span className="font-semibold text-slate-800">No benchmark</span>
@@ -123,7 +123,7 @@ export default function PurchaseActions({
                 type="button"
                 onClick={() => setChosen(i)}
                 className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left text-sm transition ${
-                  chosen === i ? "border-primary bg-primary-light" : "border-slate-200 hover:border-slate-300"
+                  chosen === i ? "border-primary bg-primary-light" : "border-[var(--line)] hover:border-[var(--line)]"
                 }`}
               >
                 <span className="min-w-0">

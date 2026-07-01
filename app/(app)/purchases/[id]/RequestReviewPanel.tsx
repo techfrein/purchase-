@@ -92,7 +92,7 @@ export default function RequestReviewPanel({
 
   if (currentStatus === "PENDING_ADMIN" && isAdmin) {
     return (
-      <div className="card p-6 border-primary/20">
+      <div className="overflow-hidden rounded-3xl border border-[var(--line)] bg-white p-6">
         <div className="font-semibold text-lg">Admin Action</div>
         <p className="text-sm text-slate-500 mb-3">Forward to Owner or reject the request.</p>
         <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note or recommendation..." className={inputClass} rows={2} />
@@ -121,7 +121,7 @@ export default function RequestReviewPanel({
 
   if (isOwner && (currentStatus === "PENDING_OWNER" || currentStatus === "PENDING_ADMIN")) {
     return (
-      <div className="card p-6">
+      <div className="overflow-hidden rounded-3xl border border-[var(--line)] bg-white p-6">
         <div className="font-semibold text-xl tracking-tight">Final Approval</div>
         <p className="text-sm text-slate-500 mt-1">Choose the winning option, assign purchaser, and decide who gets the PDF.</p>
 
@@ -130,7 +130,7 @@ export default function RequestReviewPanel({
           <div className="grid gap-2">
             {options.length === 0 && <div className="text-sm text-amber-600">Loading options…</div>}
             {options.map((o: any, i: number) => (
-              <button key={i} onClick={() => setChosenOption(o)} className={`text-left p-3 border rounded-2xl text-sm transition flex justify-between ${chosenOption === o ? "border-primary bg-primary-light" : "hover:bg-slate-50"}`}>
+              <button key={i} onClick={() => setChosenOption(o)} className={`flex w-full justify-between rounded-xl border p-3 text-left text-sm transition ${chosenOption === o ? "border-2 border-[var(--line)] bg-slate-50" : "border-[var(--line)] hover:bg-slate-50"}`}>
                 <span>{o.title}</span>
                 <span className="font-semibold">{inr(o.price)} · {o.source}</span>
               </button>

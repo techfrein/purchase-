@@ -1,9 +1,10 @@
 import { DonutGauge } from "@/components/charts";
 import { IconDownload } from "@/components/icons";
 import {
+  ActivityList,
+  ActivityRow,
   Card,
   CardHeader,
-  EmptyState,
   FilterBar,
   FilterField,
   PageHeader,
@@ -94,59 +95,43 @@ export default async function ReportsPage({ searchParams }: { searchParams: Sear
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Card className="overflow-hidden">
-          <CardHeader title="By Category" />
-          <div className="overflow-x-auto">
-            <table className="table-modern w-full text-sm">
-              <tbody>
-                {byCategory.map((c) => (
-                  <tr key={c.category}>
-                    <td className="font-medium text-slate-700">{c.category}</td>
-                    <td className="text-right text-slate-500">{c.cnt} item(s)</td>
-                    <td className="text-right font-semibold text-slate-900">{inr(c.value)}</td>
-                    <td className="text-right">
-                      {c.flagged > 0 ? (
-                        <span className="text-xs font-semibold text-red-600">{c.flagged} flagged</span>
-                      ) : (
-                        <span className="text-xs text-slate-400">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {byCategory.length === 0 && (
-                  <tr><td colSpan={4}><EmptyState message="No data" /></td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+        <div>
+          <div className="mb-3 px-1 text-xl font-bold tracking-tight text-slate-900">By Category</div>
+          {byCategory.length === 0 ? (
+            <div className="rounded-3xl border border-[var(--line)] bg-white p-10 text-center text-base text-slate-500">No data</div>
+          ) : (
+            <ActivityList>
+              {byCategory.map((c) => (
+                <ActivityRow
+                  key={c.category}
+                  icon="#"
+                  title={c.category}
+                  subtitle={`${c.cnt} item(s)${c.flagged > 0 ? ` · ${c.flagged} flagged` : ""}`}
+                  meta={inr(c.value)}
+                />
+              ))}
+            </ActivityList>
+          )}
+        </div>
 
-        <Card className="overflow-hidden">
-          <CardHeader title="By Vendor" subtitle="Most flagged first" />
-          <div className="overflow-x-auto">
-            <table className="table-modern w-full text-sm">
-              <tbody>
-                {byVendor.map((v) => (
-                  <tr key={v.vendor_name}>
-                    <td className="font-medium text-slate-700">{v.vendor_name}</td>
-                    <td className="text-right text-slate-500">{v.cnt} item(s)</td>
-                    <td className="text-right font-semibold text-slate-900">{inr(v.value)}</td>
-                    <td className="text-right">
-                      {v.flagged > 0 ? (
-                        <span className="text-xs font-semibold text-red-600">{v.flagged} flagged</span>
-                      ) : (
-                        <span className="text-xs text-slate-400">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {byVendor.length === 0 && (
-                  <tr><td colSpan={4}><EmptyState message="No vendor data" /></td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+        <div>
+          <div className="mb-3 px-1 text-xl font-bold tracking-tight text-slate-900">By Vendor</div>
+          {byVendor.length === 0 ? (
+            <div className="rounded-3xl border border-[var(--line)] bg-white p-10 text-center text-base text-slate-500">No vendor data</div>
+          ) : (
+            <ActivityList>
+              {byVendor.map((v) => (
+                <ActivityRow
+                  key={v.vendor_name}
+                  icon="🏪"
+                  title={v.vendor_name}
+                  subtitle={`${v.cnt} item(s)${v.flagged > 0 ? ` · ${v.flagged} flagged` : ""}`}
+                  meta={inr(v.value)}
+                />
+              ))}
+            </ActivityList>
+          )}
+        </div>
       </div>
     </div>
   );

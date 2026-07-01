@@ -1,31 +1,31 @@
 import type { Insight, Severity } from "@/lib/analyser";
 
-const SEV_RING: Record<Severity, string> = {
-  good: "from-emerald-500/10 to-emerald-500/0 ring-emerald-100",
-  warn: "from-amber-500/10 to-amber-500/0 ring-amber-100",
-  bad: "from-red-500/10 to-red-500/0 ring-red-100",
-  neutral: "from-slate-500/10 to-slate-500/0 ring-slate-100",
+const SEV_BG: Record<Severity, string> = {
+  good: "sev-good ring-[var(--sage-200)]",
+  warn: "sev-warn ring-[var(--honey-200)]",
+  bad: "sev-bad ring-[var(--brick-200)]",
+  neutral: "sev-neutral ring-[var(--stone-200)]",
 };
 
 const SEV_TEXT: Record<Severity, string> = {
-  good: "text-emerald-700",
-  warn: "text-amber-700",
-  bad: "text-red-600",
-  neutral: "text-slate-700",
+  good: "sev-text-good",
+  warn: "sev-text-warn",
+  bad: "sev-text-bad",
+  neutral: "sev-text-neutral",
 };
 
 const SEV_DOT: Record<Severity, string> = {
-  good: "bg-emerald-500",
-  warn: "bg-amber-500",
-  bad: "bg-red-500",
-  neutral: "bg-slate-400",
+  good: "sev-dot-good",
+  warn: "sev-dot-warn",
+  bad: "sev-dot-bad",
+  neutral: "sev-dot-neutral",
 };
 
 const METRIC_TONE: Record<Severity, string> = {
-  good: "bg-emerald-50 text-emerald-700",
-  warn: "bg-amber-50 text-amber-700",
-  bad: "bg-red-50 text-red-600",
-  neutral: "bg-slate-100 text-slate-600",
+  good: "chip-sage",
+  warn: "chip-honey",
+  bad: "chip-brick",
+  neutral: "chip-neutral",
 };
 
 function VinkuraMark({ className = "h-4 w-4" }: { className?: string }) {
@@ -50,12 +50,12 @@ export default function VinkuraAnalyser({
   const { severity } = insight;
 
   return (
-    <div className={`overflow-hidden rounded-2xl bg-gradient-to-br ring-1 ${SEV_RING[severity]} ${compact ? "p-3.5" : "p-5"}`}>
+    <div className={`overflow-hidden rounded-2xl ring-1 ${SEV_BG[severity]} ${compact ? "p-3.5" : "p-5"}`}>
       <div className="flex items-center gap-2">
         <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary text-white">
           <VinkuraMark className="h-3.5 w-3.5" />
         </span>
-        <span className="text-xs font-bold uppercase tracking-wide text-primary-deep">Vinkura Smart Analyser</span>
+        <span className="accent-teal text-xs font-bold uppercase tracking-wide">Vinkura Smart Analyser</span>
         <span className={`ml-auto flex items-center gap-1.5 text-[0.7rem] font-semibold ${SEV_TEXT[severity]}`}>
           <span className={`h-1.5 w-1.5 rounded-full ${SEV_DOT[severity]}`} />
           {insight.confidence}% confidence

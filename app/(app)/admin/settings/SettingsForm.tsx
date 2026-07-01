@@ -113,7 +113,7 @@ export default function SettingsForm({
               type="checkbox"
               checked={values.catalog_enabled === "1"}
               onChange={(e) => set("catalog_enabled", e.target.checked ? "1" : "0")}
-              className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600"
+              className="mt-1 h-4 w-4 rounded border-[var(--line)] text-emerald-600"
             />
             <span>
               <span className="font-semibold">Internal reference catalog</span>

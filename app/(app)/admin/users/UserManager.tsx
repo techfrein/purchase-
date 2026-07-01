@@ -56,7 +56,7 @@ export default function UserManager(props:
               const role = e.target.value;
               if (role !== props.targetRole) call(`/api/users/${props.userId}`, "PATCH", { role });
             }}
-            className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-600 disabled:opacity-40"
+            className="rounded-md border border-[var(--line)] px-2 py-1 text-xs text-slate-600 disabled:opacity-40"
             title="Change role"
           >
             <option value="OWNER">Owner</option>
@@ -69,7 +69,7 @@ export default function UserManager(props:
           disabled={busy || props.isSelf}
           title={props.isSelf ? "You cannot deactivate your own account" : ""}
           onClick={() => call(`/api/users/${props.userId}`, "PATCH", { active: !props.active })}
-          className="rounded-md border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+          className="rounded-md border border-[var(--line)] px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40"
         >
           {props.active ? "Deactivate" : "Activate"}
         </button>
@@ -79,7 +79,7 @@ export default function UserManager(props:
             const pw = window.prompt("New password (min 6 characters):");
             if (pw) call(`/api/users/${props.userId}`, "PATCH", { password: pw });
           }}
-          className="rounded-md border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+          className="rounded-md border border-[var(--line)] px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40"
         >
           Reset Password
         </button>

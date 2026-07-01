@@ -45,6 +45,23 @@ export function normalizeUnit(value: unknown): string {
   return UNIT_VALUES.has(v) ? v : "unit";
 }
 
+/**
+ * Guess the natural unit of measure from a free-text product name, so the
+ * new-request form can auto-select it as the user types. This is a pure keyword
+ * heuristic (no network, no LLM) — it runs on every keystroke, and the user can
+ * always override the result, so it deliberately avoids any API cost.
+ */
+export function inferUnit(name: string): string {
+  const h = name.toLowerCase();
+  if (/\b(oil|milk|water|juice|paint|diesel|petrol|fuel|sanitizer|phenyl|disinfectant|syrup|detergent|bleach|liquid)\b/.test(h))
+    return "litre";
+  if (/\b(vegetable|fruit|onion|potato|tomato|cabbage|carrot|spinach|rice|wheat|flour|atta|sugar|salt|dal|pulse|grain|spice|cement|sand|powder)\b/.test(h))
+    return "kg";
+  if (/\b(cable|wire|rope|cloth|fabric|pipe|hose|tube)\b/.test(h)) return "metre";
+  if (/\b(glove|mask|syringe|bandage|carton)\b/.test(h)) return "box";
+  return "unit";
+}
+
 /** Short suffix for display, e.g. "5 kg", "2 L", "3 pcs". */
 export function unitLabel(value: string): string {
   switch (value) {

@@ -12,7 +12,7 @@ export default async function ImportPage() {
         description="Upload a spreadsheet of purchases. Each row is recorded and price-checked automatically."
       />
 
-      <Card elevated className="p-6 sm:p-8">
+      <Card className="p-6 sm:p-8">
         <FormSection title="Step 1 — Download Template">
           <p className="text-sm leading-relaxed text-slate-600">
             Use the standard template so the columns map correctly. Required columns:{" "}
@@ -28,7 +28,7 @@ export default async function ImportPage() {
           </a>
         </FormSection>
 
-        <div className="my-8 border-t border-slate-100" />
+        <div className="my-8 border-t border-[var(--line)]" />
 
         <FormSection title="Step 2 — Upload File">
           <ImportForm />

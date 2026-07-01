@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Card, inputClass } from "@/components/ui";
+import { ActivityList, ActivityRow, Card, inputClass } from "@/components/ui";
 import { VEGETABLES, Vegetable } from "@/lib/vegetables";
 
 export default function VegetablesPage() {
@@ -90,16 +90,15 @@ export default function VegetablesPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Vegetables</h1>
-        <p className="text-slate-500 mt-1">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Vegetables</h1>
+        <p className="mt-2 text-base text-slate-500">
           Official eNAM mandi wholesale prices for bulk vegetable purchases. Select the vegetable, enter quantity, and get the current mandi rate.
         </p>
       </div>
 
-      {/* Vegetable Selector */}
-      <Card className="p-6 mb-6">
+      <Card className="mb-6 p-6">
         <div className="mb-4">
           <label className="label text-sm font-medium">Search or select vegetable</label>
           <input
@@ -123,10 +122,10 @@ export default function VegetablesPage() {
                 setSearch("");
                 setOptions([]);
               }}
-              className={`text-left px-3 py-2 rounded-xl border text-sm transition ${
+              className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
                 selected?.official === veg.official
-                  ? "bg-primary text-white border-primary"
-                  : "hover:bg-slate-50 border-slate-200"
+                  ? "border-2 border-[var(--line)] bg-slate-50 text-slate-900"
+                  : "border-[var(--line)] hover:border-[var(--line)] hover:bg-slate-50"
               }`}
             >
               <div className="font-medium">{veg.official}</div>
@@ -196,33 +195,27 @@ export default function VegetablesPage() {
       {/* Results */}
       {options.length > 0 && (
         <div className="mb-6">
-          <h2 className="font-semibold mb-3">eNAM Price</h2>
-          <div className="grid gap-4">
+          <div className="mb-3 px-1 text-xl font-bold tracking-tight text-slate-900">eNAM Price</div>
+          <ActivityList>
             {options.map((opt, idx) => (
-              <Card key={idx} className="p-5">
-                <div className="flex justify-between">
-                  <div>
-                    <div className="font-semibold text-lg">{opt.title}</div>
-                    <div className="text-sm text-slate-500">{opt.source}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-semibold">₹{opt.price}</div>
-                    <div className="text-xs text-slate-500">per {unit}</div>
-                  </div>
-                </div>
-                {opt.description && (
-                  <p className="text-sm text-slate-600 mt-3">{opt.description}</p>
-                )}
-                <button
-                  onClick={() => submitRequest(opt)}
-                  disabled={submitting || !reason.trim()}
-                  className="btn btn-primary mt-4 w-full"
-                >
-                  {submitting ? "Submitting request..." : "Select this price & Submit Request"}
-                </button>
-              </Card>
+              <ActivityRow
+                key={idx}
+                icon="🥕"
+                title={opt.title}
+                subtitle={opt.source}
+                meta={`₹${opt.price} / ${unit}`}
+                trailing={
+                  <button
+                    onClick={() => submitRequest(opt)}
+                    disabled={submitting || !reason.trim()}
+                    className="btn btn-primary btn-sm shrink-0"
+                  >
+                    {submitting ? "…" : "Select"}
+                  </button>
+                }
+              />
             ))}
-          </div>
+          </ActivityList>
         </div>
       )}
 

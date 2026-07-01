@@ -1,4 +1,4 @@
-import { Card, CardHeader, DataTable, EmptyState, PageHeader } from "@/components/ui";
+import { ActivityList, ActivityRow, Card, CardHeader, PageHeader } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
 import { fetchCategories } from "@/lib/categories";
 import { formatDate, inr } from "@/lib/format";
@@ -13,7 +13,7 @@ export default async function CatalogPage() {
     <div className="max-w-5xl">
       <PageHeader
         title="Reference Price Catalog"
-        description={`Benchmark prices used when online stores are unreachable. Keep these updated with verified market rates (${rows.length} entries).`}
+        description={`Benchmark prices when online stores are unreachable (${rows.length} entries).`}
       />
 
       <Card className="mb-6 overflow-hidden">
@@ -23,37 +23,29 @@ export default async function CatalogPage() {
         </div>
       </Card>
 
-      <DataTable>
-        <thead>
-          <tr>
-            <th>Product</th>
-            <th>Category</th>
-            <th>Brand / Model</th>
-            <th className="text-right">Price</th>
-            <th>Updated</th>
-            <th className="text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
+      {rows.length === 0 ? (
+        <div className="rounded-3xl border border-[var(--line)] bg-white p-10 text-center text-base text-slate-500">
+          Catalog is empty.
+        </div>
+      ) : (
+        <ActivityList>
           {rows.map((r) => (
-            <tr key={r.id}>
-              <td className="max-w-72 truncate font-medium text-slate-700">{r.product_name}</td>
-              <td className="text-slate-600">{r.category}</td>
-              <td className="text-slate-600">
-                {[r.brand, r.model].filter(Boolean).join(" / ") || "—"}
-              </td>
-              <td className="text-right font-semibold text-slate-900">{inr(Number(r.price))}</td>
-              <td className="text-slate-500">{formatDate(r.updated_at)}</td>
-              <td className="text-right">
-                <CatalogManager mode="delete" entryId={r.id} />
-              </td>
-            </tr>
+            <ActivityRow
+              key={r.id}
+              icon="₹"
+              title={r.product_name}
+              subtitle={[r.category, r.brand, r.model].filter(Boolean).join(" · ") || "—"}
+              meta={formatDate(r.updated_at)}
+              trailing={
+                <div className="flex shrink-0 items-center gap-3">
+                  <span className="text-sm font-semibold text-slate-900">{inr(Number(r.price))}</span>
+                  <CatalogManager mode="delete" entryId={r.id} />
+                </div>
+              }
+            />
           ))}
-          {rows.length === 0 && (
-            <tr><td colSpan={6}><EmptyState message="Catalog is empty." /></td></tr>
-          )}
-        </tbody>
-      </DataTable>
+        </ActivityList>
+      )}
     </div>
   );
 }
